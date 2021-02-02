@@ -29,4 +29,4 @@ jobs:
         platforms: linux/amd64,linux/arm/v7
         push: true
         tags: |
-          zeppelinux/ninjam-server:${{ github.ref }}
+          zfigz/ninjam-server:${{ github.ref }}

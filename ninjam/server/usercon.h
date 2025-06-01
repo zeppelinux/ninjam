@@ -103,7 +103,7 @@ class User_Group
     // sends a message to the people subscribing to a channel of a user
     void BroadcastToSubs(Net_Message *msg, User_Connection *src, int channel);
 
-    IUserInfoLookup *(*CreateUserLookup)(char *username);
+    IUserInfoLookup *(*CreateUserLookup)(const char *username);
 
     void onChatMessage(User_Connection *con, mpb_chat_message *msg);
 

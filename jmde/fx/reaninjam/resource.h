@@ -1,5 +1,5 @@
 //{{NO_DEPENDENCIES}}
-// Microsoft Developer Studio generated include file.
+// Microsoft Visual C++ generated include file.
 // Used by res.rc
 //
 #define IDD_MAIN                        101
@@ -83,6 +83,14 @@
 #define IDC_SYNC                        1076
 #define IDC_MATCHBPM_SETLOOP            1077
 #define IDC_SETLOOP                     1078
+#define IDC_LABEL1                      1080
+#define IDC_METROOUTLBL                 1081
+#define IDC_METROOUT                    1082
+#define IDC_LOCALOUT                    1083
+#define IDC_REMOTEOUT                   1084
+#define IDC_INCH                        1085
+#define IDC_OUTCH                       1086
+#define IDC_COMBO1                      1087
 #define ID_LOCAL_CHANNEL_1              2011
 #define ID_LOCAL_CHANNEL_2              2012
 #define ID_LOCAL_CHANNEL_3              2013
@@ -116,8 +124,6 @@
 #define ID_REMOTE_USER_CHANNEL_9        2119
 #define ID_REMOTE_USER_CHANNEL_10       2120
 #define ID_REMOTE_USER_CHANNEL_50       2160
-#define ID_METRONOME_CH5                2161
-#define ID_LOCAL_CH34                   2162
 #define ID_FILE_CONNECT                 40001
 #define ID_FILE_DISCONNECT              40002
 #define ID_OPTIONS_PREFERENCES          40005
@@ -129,7 +135,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        123
 #define _APS_NEXT_COMMAND_VALUE         40009
-#define _APS_NEXT_CONTROL_VALUE         1080
+#define _APS_NEXT_CONTROL_VALUE         1088
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

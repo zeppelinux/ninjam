@@ -57,7 +57,7 @@ void chatmsg_cb(void *userData, NJClient *inst, const char **parms, int nparms)
         else
         {
           tmp.Append(" removes topic.");
-        }  
+        }
       }
       else
       {
@@ -71,14 +71,14 @@ void chatmsg_cb(void *userData, NJClient *inst, const char **parms, int nparms)
 
       g_topic.Set(parms[2]);
       chat_addline("",tmp.Get());
-    
+
     }
   }
   else if (!strcmp(parms[0],"MSG"))
   {
     if (parms[1] && parms[2])
       chat_addline(parms[1],parms[2]);
-  } 
+  }
   else if (!strcmp(parms[0],"PRIVMSG"))
   {
     if (parms[1] && parms[2])
@@ -90,7 +90,7 @@ void chatmsg_cb(void *userData, NJClient *inst, const char **parms, int nparms)
       tmp.Append(parms[2]);
       chat_addline(NULL,tmp.Get());
     }
-  } 
+  }
   else if (!strcmp(parms[0],"JOIN") || !strcmp(parms[0],"PART"))
   {
     if (parms[1] && *parms[1])
@@ -101,7 +101,7 @@ void chatmsg_cb(void *userData, NJClient *inst, const char **parms, int nparms)
       tmp.Append(" the server");
       chat_addline("",tmp.Get());
     }
-  } 
+  }
 }
 
 
@@ -155,7 +155,7 @@ void chatRun(HWND hwndDlg)
   m_append_mutex.Leave();
 
   if (!tmp.Get()[0]) return;
-  
+
   HWND m_hwnd=GetDlgItem(hwndDlg,IDC_CHATDISP);
   const bool is_foc = GetFocus() == m_hwnd;
 #ifdef _WIN32
@@ -205,7 +205,7 @@ void chatRun(HWND hwndDlg)
     for (; txt[x] == '\r' || txt[x] == '\n'; x++)
     {
 #ifdef _WIN32
-      if (txt[x] == '\r') cr++; 
+      if (txt[x] == '\r') cr++;
 #endif
     }
 
@@ -231,7 +231,7 @@ void chatRun(HWND hwndDlg)
     SendMessage(m_hwnd,EM_REPLACESEL,0, (LPARAM)"");
   }
 
-  if (textl) 
+  if (textl)
   {
 #ifdef _WIN32
     tmp.Insert("\r\n",0);

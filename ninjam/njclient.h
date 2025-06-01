@@ -19,8 +19,8 @@
 
 /*
 
-  This file defines the interface for the NJClient class, which handles 
-  the bulk of logic and state of the client. 
+  This file defines the interface for the NJClient class, which handles
+  the bulk of logic and state of the client.
 
   The basic premise of the NJClient class is, the UI code tells NJClient
   when the user tweaks something, and NJClient tells the UI code when
@@ -29,18 +29,18 @@
   NJClient::Run() needs to be called regularly (preferably every 50ms or less).
   When calling, if Run() returns 0, you should immediately call it again. i.e.:
 
-  while (!myClient->Run()); 
+  while (!myClient->Run());
 
-  Is how Run() should usually be called. In general it is easier to call Run() 
+  Is how Run() should usually be called. In general it is easier to call Run()
   from the UI thread in a timer, for example, but it turns out it's a lot better
   to call it from its own thread to ensure that some UI issue doesn't end up
   stalling it. If you go this route, you will want to put the Run() call inside
-  of a mutex lock, and also any code that reads/writes remote channel state or 
-  writes to local channel state, in that mutex lock as well. This is a bit of 
+  of a mutex lock, and also any code that reads/writes remote channel state or
+  writes to local channel state, in that mutex lock as well. This is a bit of
   a pain, but not really that bad.
 
   Additionally, NJClient::AudioProc() needs to be called from the audio thread.
-  It is not necessary to do any sort of mutex protection around these calls, 
+  It is not necessary to do any sort of mutex protection around these calls,
   though, as they are done internally.
 
 
@@ -97,13 +97,13 @@ public:
   NJClient();
   ~NJClient();
 
-  void Connect(char *host, char *user, char *pass);
+  void Connect(const char *host, const char *user, const char *pass);
   void Disconnect();
 
   // call Run() from your main (UI) thread
   int Run();// returns nonzero if sleep is OK
 
-  char *GetErrorStr() { return m_errstr.Get(); }
+  const char *GetErrorStr() { return m_errstr.Get(); }
 
   int IsAudioRunning() { return m_audio_enable; }
   // call AudioProc, (and only AudioProc) from your audio thread
@@ -112,16 +112,18 @@ public:
 
   // basic configuration
   int   config_autosubscribe;
-  int   config_savelocalaudio; // set 1 to save compressed files, set to 2 to save .wav files as well. 
+  int   config_savelocalaudio; // set 1 to save compressed files, set to 2 to save .wav files as well.
                                 // -1 makes it try to delete the remote .oggs as soon as possible
 
   float config_metronome,config_metronome_pan; // volume of metronome
   bool  config_metronome_mute;
   float config_mastervolume,config_masterpan; // master volume
   bool  config_mastermute;
-  int   config_debug_level; 
+  int   config_debug_level;
   int   config_play_prebuffer; // -1 means play instantly, 0 means play when full file is there, otherwise refers to how many
                                // bytes of compressed source to have before play. the default value is 4096.
+  int config_remote_autochan; // 1=auto-assign by channel, 2=auto-assign by user
+  int config_remote_autochan_nch;
 
   float GetOutputPeak(int ch=-1);
 
@@ -129,25 +131,25 @@ public:
   int GetStatus();
 
   void SetWorkDir(char *path);
-  char *GetWorkDir() { return m_workdir.Get(); }
+  const char *GetWorkDir() { return m_workdir.Get(); }
 
-  char *GetUser() { return m_user.Get(); }
-  char *GetHostName() { return m_host.Get(); }
+  const char *GetUser() { return m_user.Get(); }
+  const char *GetHostName() { return m_host.Get(); }
 
   float GetActualBPM() { return (float) m_active_bpm; }
   int GetBPI() { return m_active_bpi; }
   void GetPosition(int *pos, int *length);  // positions in samples
-  int GetLoopCount() { return m_loopcnt; }  
+  int GetLoopCount() { return m_loopcnt; }
   unsigned int GetSessionPosition(); // returns milliseconds
 
   int HasUserInfoChanged() { if (m_userinfochange) { m_userinfochange=0; return 1; } return 0; }
   int GetNumUsers() { return m_remoteusers.GetSize(); }
-  char *GetUserState(int idx, float *vol=0, float *pan=0, bool *mute=0);
+  const char *GetUserState(int idx, float *vol=0, float *pan=0, bool *mute=0);
   void SetUserState(int idx, bool setvol, float vol, bool setpan, float pan, bool setmute, bool mute);
 
   float GetUserChannelPeak(int useridx, int channelidx, int whichch=-1);
   double GetUserSessionPos(int useridx, time_t *lastupdatetime, double *maxlen);
-  char *GetUserChannelState(int useridx, int channelidx, bool *sub=0, float *vol=0, float *pan=0, bool *mute=0, bool *solo=0, int *outchannel=0, int *flags=0);
+  const char *GetUserChannelState(int useridx, int channelidx, bool *sub=0, float *vol=0, float *pan=0, bool *mute=0, bool *solo=0, int *outchannel=0, int *flags=0);
   void SetUserChannelState(int useridx, int channelidx, bool setsub, bool sub, bool setvol, float vol, bool setpan, float pan, bool setmute, bool mute, bool setsolo, bool solo, bool setoutch=false, int outchannel=0);
   int EnumUserChannels(int useridx, int i); // returns <0 if out of channels. start with i=0, and go upwards
 
@@ -158,18 +160,20 @@ public:
   void SetLocalChannelProcessor(int ch, void (*cbf)(float *, int ns, void *), void *inst);
   void GetLocalChannelProcessor(int ch, void **func, void **inst);
   void SetLocalChannelInfo(int ch, const char *name, bool setsrcch, int srcch, bool setbitrate, int bitrate, bool setbcast, bool broadcast, bool setoutch=false, int outch=0, bool setflags=false, int flags=0);
-  char *GetLocalChannelInfo(int ch, int *srcch, int *bitrate, bool *broadcast, int *outch=0, int *flags=0);
+  const char *GetLocalChannelInfo(int ch, int *srcch, int *bitrate, bool *broadcast, int *outch=0, int *flags=0);
   void SetLocalChannelMonitoring(int ch, bool setvol, float vol, bool setpan, float pan, bool setmute, bool mute, bool setsolo, bool solo);
   int GetLocalChannelMonitoring(int ch, float *vol, float *pan, bool *mute, bool *solo); // 0 on success
   void NotifyServerOfChannelChange(); // call after any SetLocalChannel* that occur after initial connect
 
   void SetMetronomeChannel(int chidx) { m_metro_chidx=chidx; } // chidx&255 is stereo pair index, add 1024 for mono only
+  int GetMetronomeChannel() const { return m_metro_chidx; }
+
   void SetRemoteChannelOffset(int offs) { m_remote_chanoffs = offs; }
   void SetLocalChannelOffset(int offs) { m_local_chanoffs = offs; }
 
   int IsASoloActive() { return m_issoloactive; }
 
-  void SetLogFile(char *name=NULL);
+  void SetLogFile(const char *name=NULL);
 
   void SetOggOutFile(FILE *fp, int srate, int nch, int bitrate=128);
   WaveWriter *waveWrite;
@@ -191,7 +195,7 @@ public:
   // usernames are not case sensitive, but message names ARE.
 
   // note that nparms is the MAX number of parms, you still can get NULL parms entries in there (though rarely)
-  void (*ChatMessage_Callback)(void *userData, NJClient *inst, const char **parms, int nparms); 
+  void (*ChatMessage_Callback)(void *userData, NJClient *inst, const char **parms, int nparms);
   void *ChatMessage_User;
 
 
@@ -261,7 +265,7 @@ protected:
   WDL_PtrList<Local_Channel> m_locchannels;
 
   void mixInChannel(RemoteUser *user, int chanidx,
-                    bool muted, float vol, float pan, float **outbuf, int out_channel, 
+                    bool muted, float vol, float pan, float **outbuf, int out_channel,
                     int len, int srate, int outnch, int offs, double vudecay, bool isPlaying, bool isSeek, double playPos);
 
   WDL_Mutex m_users_cs, m_locchan_cs, m_log_cs, m_misc_cs;
@@ -270,6 +274,8 @@ protected:
   WDL_PtrList<RemoteDownload> m_downloads;
 
   WDL_HeapBuf tmpblock;
+
+  int find_unused_output_channel_pair() const;
 };
 
 

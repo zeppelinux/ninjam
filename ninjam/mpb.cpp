@@ -19,9 +19,9 @@
 
 /*
 
-  This file provides implementation of Message Parser and Builder (mpb_) 
+  This file provides implementation of Message Parser and Builder (mpb_)
   classes for constructing and parsing Net_Messages.
- 
+
 */
 
 
@@ -36,7 +36,7 @@
 
 
 
-// MESSAGE_SERVER_AUTH_CHALLENGE 
+// MESSAGE_SERVER_AUTH_CHALLENGE
 int mpb_server_auth_challenge::parse(Net_Message *msg) // return 0 on success
 {
   if (msg->get_type() != MESSAGE_SERVER_AUTH_CHALLENGE) return -1;
@@ -61,7 +61,7 @@ int mpb_server_auth_challenge::parse(Net_Message *msg) // return 0 on success
   {
     const char *s=(const char *)p;
     const unsigned char *endp = (const unsigned char *)msg->get_data() + msg->get_size();
-    while (p < endp) 
+    while (p < endp)
     {
       if (!*p)
       {
@@ -79,14 +79,14 @@ Net_Message *mpb_server_auth_challenge::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_SERVER_AUTH_CHALLENGE);
-  
+
   const int la_sz = (license_agreement ? (int)strlen(license_agreement) + 1 : 0);
   const int sz = (int)sizeof(challenge)+8 + la_sz;
   nm->set_size(sz);
 
   unsigned char *p=(unsigned char *)nm->get_data();
 
-  if (!p) 
+  if (!p)
   {
     delete nm;
     return 0;
@@ -156,7 +156,7 @@ Net_Message *mpb_server_auth_reply::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_SERVER_AUTH_REPLY);
-  
+
   const int errmsg_sz = errmsg ? (int)strlen(errmsg)+1 : 0;
   const int sz = 1 + (errmsg ? errmsg_sz + 1 : 0);
   nm->set_size(sz);
@@ -201,7 +201,7 @@ Net_Message *mpb_server_config_change_notify::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_SERVER_CONFIG_CHANGE_NOTIFY);
-  
+
   nm->set_size(4);
 
   unsigned char *p=(unsigned char *)nm->get_data();
@@ -233,7 +233,7 @@ int mpb_server_userinfo_change_notify::parse(Net_Message *msg) // return 0 on su
 
 Net_Message *mpb_server_userinfo_change_notify::build()
 {
-  if (m_intmsg) 
+  if (m_intmsg)
   {
     Net_Message *n=m_intmsg;
     m_intmsg=0;
@@ -241,14 +241,14 @@ Net_Message *mpb_server_userinfo_change_notify::build()
   }
 
   Net_Message *nm=new Net_Message;
-  nm->set_type(MESSAGE_SERVER_USERINFO_CHANGE_NOTIFY); 
+  nm->set_type(MESSAGE_SERVER_USERINFO_CHANGE_NOTIFY);
   nm->set_size(0);
 
   return nm;
 }
 
 
-void mpb_server_userinfo_change_notify::build_add_rec(int isActive, int channelid, 
+void mpb_server_userinfo_change_notify::build_add_rec(int isActive, int channelid,
                                                       short volume, int pan, int flags, const char *username, const char *chname)
 {
   const int username_len = username ? (int)strlen(username) : 0;
@@ -261,10 +261,10 @@ void mpb_server_userinfo_change_notify::build_add_rec(int isActive, int channeli
            1+ // flags
            username_len+1+chname_len+1;
 
-  if (!m_intmsg) 
+  if (!m_intmsg)
   {
     m_intmsg = new Net_Message;
-    m_intmsg->set_type(MESSAGE_SERVER_USERINFO_CHANGE_NOTIFY); 
+    m_intmsg->set_type(MESSAGE_SERVER_USERINFO_CHANGE_NOTIFY);
   }
   const int oldsize=m_intmsg->get_size();
   m_intmsg->set_size(size+oldsize);
@@ -273,7 +273,7 @@ void mpb_server_userinfo_change_notify::build_add_rec(int isActive, int channeli
   {
     p+=oldsize;
     *p++=!!isActive;
-    
+
     if (channelid < 0) channelid=0;
     else if (channelid>255)channelid=255;
     *p++=channelid;
@@ -300,7 +300,7 @@ void mpb_server_userinfo_change_notify::build_add_rec(int isActive, int channeli
 
 
 // returns offset of next item on success, or <= 0 if out of items
-int mpb_server_userinfo_change_notify::parse_get_rec(int offs, int *isActive, int *channelid, short *volume, 
+int mpb_server_userinfo_change_notify::parse_get_rec(int offs, int *isActive, int *channelid, short *volume,
                                                      int *pan, int *flags, const char **username, const char **chname)
 {
   const int hdrsize=1+ // is remove
@@ -344,7 +344,7 @@ int mpb_server_userinfo_change_notify::parse_get_rec(int offs, int *isActive, in
   *isActive=(int)*hdrbuf++;
   *channelid=(int)*hdrbuf++;
   *volume=(int)*hdrbuf++;
-  *volume |= ((int)*hdrbuf++)<<8;  
+  *volume |= ((int)*hdrbuf++)<<8;
   *pan = (int) *hdrbuf++;
   *flags = (int) *hdrbuf++;
 
@@ -397,7 +397,7 @@ Net_Message *mpb_server_download_interval_begin::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_SERVER_DOWNLOAD_INTERVAL_BEGIN);
-  
+
   const int username_len = username ? (int)strlen(username) : 0;
 
   const int sz = 25 + username_len + 1;
@@ -453,7 +453,7 @@ Net_Message *mpb_server_download_interval_write::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_SERVER_DOWNLOAD_INTERVAL_WRITE);
-  
+
   const int sz = 17 + (audio_data ? audio_data_len : 0);
   nm->set_size(sz);
 
@@ -505,7 +505,7 @@ int mpb_client_auth_user::parse(Net_Message *msg) // return 0 on success
   if (!len) return 3;
   p++;
   len--;
-  
+
   if (len < 8) return 3;
 
   client_caps = ((int)*p++);
@@ -517,7 +517,7 @@ int mpb_client_auth_user::parse(Net_Message *msg) // return 0 on success
   client_version |= ((int)*p++)<<8;
   client_version |= ((int)*p++)<<16;
   client_version |= ((int)*p++)<<24;
-  
+
   //printf("bla (len=%d, caps=%d) decoded client version %08x\n",len,client_caps,client_version);
 
   return 0;
@@ -527,14 +527,14 @@ Net_Message *mpb_client_auth_user::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_CLIENT_AUTH_USER);
-  
+
   const int username_len = username ? (int)strlen(username) : 0;
   const int sz = (int)sizeof(passhash)+username_len + 1 + 4 + 4;
   nm->set_size(sz);
 
   unsigned char *p=(unsigned char *)nm->get_data();
 
-  if (!p) 
+  if (!p)
   {
     delete nm;
     return 0;
@@ -573,7 +573,7 @@ int mpb_client_set_usermask::parse(Net_Message *msg) // return 0 on success
 
 Net_Message *mpb_client_set_usermask::build()
 {
-  if (m_intmsg) 
+  if (m_intmsg)
   {
     Net_Message *n=m_intmsg;
     m_intmsg=0;
@@ -581,7 +581,7 @@ Net_Message *mpb_client_set_usermask::build()
   }
 
   Net_Message *nm=new Net_Message;
-  nm->set_type(MESSAGE_CLIENT_SET_USERMASK); 
+  nm->set_type(MESSAGE_CLIENT_SET_USERMASK);
   nm->set_size(0);
 
   return nm;
@@ -593,10 +593,10 @@ void mpb_client_set_usermask::build_add_rec(const char *username, unsigned int c
   const int username_len = username ? (int)strlen(username) : 0;
   const int size=4+username_len+1;
 
-  if (!m_intmsg) 
+  if (!m_intmsg)
   {
     m_intmsg = new Net_Message;
-    m_intmsg->set_type(MESSAGE_CLIENT_SET_USERMASK); 
+    m_intmsg->set_type(MESSAGE_CLIENT_SET_USERMASK);
   }
   const int oldsize=m_intmsg->get_size();
   m_intmsg->set_size(size+oldsize);
@@ -637,7 +637,7 @@ int mpb_client_set_usermask::parse_get_rec(int offs, const char **username, unsi
 
   if (len<4) return -1;
 
-  *chflags = ((int)*p++); 
+  *chflags = ((int)*p++);
   *chflags |= ((int)*p++)<<8;
   *chflags |= ((int)*p++)<<16;
   *chflags |= ((int)*p++)<<24;
@@ -658,7 +658,7 @@ int mpb_client_set_channel_info::parse(Net_Message *msg) // return 0 on success
 
 Net_Message *mpb_client_set_channel_info::build()
 {
-  if (m_intmsg) 
+  if (m_intmsg)
   {
     Net_Message *n=m_intmsg;
     m_intmsg=0;
@@ -666,7 +666,7 @@ Net_Message *mpb_client_set_channel_info::build()
   }
 
   Net_Message *nm=new Net_Message;
-  nm->set_type(MESSAGE_CLIENT_SET_CHANNEL_INFO); 
+  nm->set_type(MESSAGE_CLIENT_SET_CHANNEL_INFO);
   nm->set_size(0);
 
   return nm;
@@ -678,10 +678,10 @@ void mpb_client_set_channel_info::build_add_rec(const char *chname, short volume
   const int chname_len = chname ? (int)strlen(chname) : 0;
   const int size=mpisize+chname_len+1;
 
-  if (!m_intmsg) 
+  if (!m_intmsg)
   {
     m_intmsg = new Net_Message;
-    m_intmsg->set_type(MESSAGE_CLIENT_SET_CHANNEL_INFO); 
+    m_intmsg->set_type(MESSAGE_CLIENT_SET_CHANNEL_INFO);
     m_intmsg->set_size(2);
     unsigned char *p=(unsigned char*)m_intmsg->get_data();
     if (!p) return;
@@ -779,7 +779,7 @@ Net_Message *mpb_client_upload_interval_begin::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_CLIENT_UPLOAD_INTERVAL_BEGIN);
-  
+
   const int sz = 25;
   nm->set_size(sz);
 
@@ -831,7 +831,7 @@ Net_Message *mpb_client_upload_interval_write::build()
 {
   Net_Message *nm=new Net_Message;
   nm->set_type(MESSAGE_CLIENT_UPLOAD_INTERVAL_WRITE);
-  
+
   const int sz = 17 + (audio_data ? audio_data_len : 0);
   nm->set_size(sz);
 
@@ -893,7 +893,7 @@ Net_Message *mpb_chat_message::build()
     if (parms[x]) sz += (int)strlen(parms[x]);
     sz += 1;
   }
-  
+
   nm->set_size(sz);
 
   char *p=(char *)nm->get_data();
@@ -907,7 +907,7 @@ Net_Message *mpb_chat_message::build()
   for (x = 0; x < (int) (sizeof(parms)/sizeof(parms[0])); x ++)
   {
     const char *sp=parms[x];
-    if (sp) 
+    if (sp)
     {
       const int l = (int)strlen(sp);
       memcpy(p, sp, l);

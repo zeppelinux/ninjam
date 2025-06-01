@@ -340,7 +340,7 @@ static LRESULT CALLBACK m_WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lP
 							    rf=1;
 							    SelectObject(hdc,ctx->mOurFont_ul);
 						    }
-				        TextOut(hdc,xpos,ypos,isprint(c) && !isspace(c) ? p : " ",1);
+				        TextOut(hdc,xpos,ypos,isprint_safe(c) && !isspace_safe(c) ? p : " ",1);
 						    if (rf)
 						    {
  							    SelectObject(hdc,ctx->mOurFont);

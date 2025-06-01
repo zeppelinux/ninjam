@@ -33,16 +33,6 @@
 #define SWAP(a,b,t) { t __tmp = (a); (a)=(b); (b)=__tmp; }
 
 
-extern BOOL	(WINAPI *InitializeCoolSB)(HWND hwnd);
-extern HRESULT (WINAPI *UninitializeCoolSB)(HWND hwnd);
-extern BOOL (WINAPI *CoolSB_SetVegasStyle)(HWND hwnd, BOOL active);
-extern int	 (WINAPI *CoolSB_SetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi, BOOL fRedraw);
-extern BOOL (WINAPI *CoolSB_GetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi);
-extern int (WINAPI *CoolSB_SetScrollPos)(HWND hwnd, int nBar, int nPos, BOOL fRedraw);
-extern int (WINAPI *CoolSB_SetScrollRange)(HWND hwnd, int nBar, int nMinPos, int nMaxPos, BOOL fRedraw);
-extern BOOL (WINAPI *CoolSB_SetMinThumbSize)(HWND hwnd, UINT wBar, UINT size);
-
-
 #include <math.h>
 
 #include "winclient.h"
@@ -55,6 +45,12 @@ extern HANDLE * (*GetIconThemePointer)(const char *name);
 
 static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+  static const struct { int id; const char *str; } s_accesslist[] = {
+    // !WANT_LOCALIZE_STRINGS_BEGIN:reaninjam_access
+    { IDC_USERNAME, "Remote user name" },
+    { IDC_SESSIONINFO, "Remote user info" },
+    // !WANT_LOCALIZE_STRINGS_END
+  };
   switch (uMsg)
   {
     case WM_RCUSER_UPDATE:
@@ -62,6 +58,14 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
     break;
     case WM_INITDIALOG:
       SetWindowLongPtr(hwndDlg,GWLP_USERDATA,0x0fffffff);
+      if (SetWindowAccessibilityString)
+        for (int x = 0; x < (int)(sizeof(s_accesslist)/sizeof(s_accesslist[0])); x++)
+          SetWindowAccessibilityString(GetDlgItem(hwndDlg,s_accesslist[x].id),__localizeFunc(s_accesslist[x].str,"reaninjam_access",0),0);
+    break;
+    case WM_DESTROY:
+      if (SetWindowAccessibilityString)
+        for (int x = 0; x < (int)(sizeof(s_accesslist)/sizeof(s_accesslist[0])); x++)
+          SetWindowAccessibilityString(GetDlgItem(hwndDlg,s_accesslist[x].id),NULL,0);
     break;
   }
   int m_user=-1-GetWindowLongPtr(hwndDlg,GWLP_USERDATA);
@@ -75,7 +79,7 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
     case WM_DRAWITEM:
       return SendMessage(GetMainHwnd(),uMsg,wParam,lParam);;
     case WM_RCUSER_UPDATE: // update the items
-      {        
+      {
         g_client->m_remotechannel_rd_mutex.Enter();
         bool mute;
         const char *un=g_client->GetUserState(m_user,NULL,NULL,&mute);
@@ -85,7 +89,8 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 
         ShowWindow(GetDlgItem(hwndDlg,IDC_DIV),m_user ? SW_SHOW : SW_HIDE);
         SendDlgItemMessage(hwndDlg,IDC_MUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(mute?"track_mute_on":"track_mute_off"));
-        SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(mute?"Unmute remote user":"Mute remote user"));
+        SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(mute?__LOCALIZE("Unmute remote user","reaninjam"):
+              __LOCALIZE("Mute remote user","reaninjam")));
       }
     break;
     case WM_LCUSER_VUUPDATE:
@@ -95,7 +100,7 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
         time_t t;
         double mp=-1.0;
         double d=g_client->GetUserSessionPos(m_user,&t,&mp);
-        char buf[512];          
+        char buf[512];
         if ((d>-0.5||mp>-0.5))
         {
           if (d>-0.5&&t > time(NULL)-7) format_timestr_pos(d,buf,sizeof(buf),-1);
@@ -108,7 +113,7 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
           }
           SetDlgItemText(hwndDlg,IDC_SESSIONINFO,buf);
         }
-        else 
+        else
         {
           SetDlgItemText(hwndDlg,IDC_SESSIONINFO,"");
         }
@@ -128,7 +133,8 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
             g_client->SetUserState(m_user,false,0.0,false,0.0,true,mute);
             g_client->m_remotechannel_rd_mutex.Leave();
             SendDlgItemMessage(hwndDlg,IDC_MUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(mute?"track_mute_on":"track_mute_off"));
-            SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(mute?"Unmute remote user":"Mute remote user"));
+            SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(mute?__LOCALIZE("Unmute remote user","reaninjam"):
+              __LOCALIZE("Mute remote user","reaninjam")));
           }
         break;
       }
@@ -140,6 +146,12 @@ static WDL_DLGRET RemoteUserItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   int m_userch=GetWindowLongPtr(hwndDlg,GWLP_USERDATA); // high 16 bits, user, low 16 bits, channel
+  static const struct { int id; const char *str; } s_accesslist[] = {
+    // !WANT_LOCALIZE_STRINGS_BEGIN:reaninjam_access
+    { IDC_CHANNELNAME, "Remote channel name" },
+    { IDC_REMOTEOUT, "Remote channel output" },
+    // !WANT_LOCALIZE_STRINGS_END
+  };
   switch (uMsg)
   {
     case WM_NOTIFY:
@@ -147,7 +159,7 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
       {
         extern LRESULT (*handleCheckboxCustomDraw)(HWND, LPARAM, const unsigned short *list, int listsz, bool isdlg);
         const unsigned short list[] = { IDC_RECV };
-        if (handleCheckboxCustomDraw) 
+        if (handleCheckboxCustomDraw)
           return handleCheckboxCustomDraw(hwndDlg,lParam,list,1,true);
       }
 #endif
@@ -165,12 +177,23 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
 //      SendDlgItemMessage(hwndDlg,IDC_VU,PBM_SETRANGE,0,MAKELPARAM(0,100));
 
 //      SendDlgItemMessage(hwndDlg,IDC_VOL,TBM_SETRANGE,FALSE,MAKELONG(0,100));
-      SendDlgItemMessage(hwndDlg,IDC_VOL,TBM_SETTIC,FALSE,-1);       
+      SendDlgItemMessage(hwndDlg,IDC_VOL,TBM_SETTIC,FALSE,-1);
       SendDlgItemMessage(hwndDlg,IDC_PAN,TBM_SETRANGE,FALSE,MAKELONG(0,100));
-      SendDlgItemMessage(hwndDlg,IDC_PAN,TBM_SETTIC,FALSE,50);       
-      SendDlgItemMessage(hwndDlg,IDC_VOL,WM_USER+9999,1,(LPARAM)"Remote channel volume");
-      SendDlgItemMessage(hwndDlg,IDC_PAN,WM_USER+9999,1,(LPARAM)"Remote channel pan");
+      SendDlgItemMessage(hwndDlg,IDC_PAN,TBM_SETTIC,FALSE,50);
+      SendDlgItemMessage(hwndDlg,IDC_VOL,WM_USER+9999,1,(LPARAM)__LOCALIZE("Remote channel volume","reaninjam_access"));
+      SendDlgItemMessage(hwndDlg,IDC_PAN,WM_USER+9999,1,(LPARAM)__LOCALIZE("Remote channel pan","reaninjam_access"));
+      PopulateOutputCombo(GetDlgItem(hwndDlg,IDC_REMOTEOUT),0,false);
+
+      if (SetWindowAccessibilityString)
+        for (int x = 0; x < (int)(sizeof(s_accesslist)/sizeof(s_accesslist[0])); x++)
+          SetWindowAccessibilityString(GetDlgItem(hwndDlg,s_accesslist[x].id),__localizeFunc(s_accesslist[x].str,"reaninjam_access",0),0);
+
     return 0;
+    case WM_DESTROY:
+      if (SetWindowAccessibilityString)
+        for (int x = 0; x < (int)(sizeof(s_accesslist)/sizeof(s_accesslist[0])); x++)
+          SetWindowAccessibilityString(GetDlgItem(hwndDlg,s_accesslist[x].id),NULL,0);
+    break;
     case WM_RCUSER_UPDATE:
       m_userch=((int)LOWORD(wParam) << 16) | LOWORD(lParam);
       SetWindowLongPtr(hwndDlg,GWLP_USERDATA,m_userch);
@@ -183,24 +206,23 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
     case WM_RCUSER_UPDATE: // update the items
       {
         g_client->m_remotechannel_rd_mutex.Enter();
-        const char *un=g_client->GetUserState(user,NULL,NULL,NULL);
-        SetDlgItemText(hwndDlg,IDC_USERNAME,un?un:"");
 
         bool sub=0,m=0,s=0;
         float v=0,p=0;
         int flags=0;
-        char *cn=g_client->GetUserChannelState(user,chan,&sub,&v,&p,&m,&s,NULL,&flags);
+        int chidx = 0;
+        const char *cn=g_client->GetUserChannelState(user,chan,&sub,&v,&p,&m,&s,&chidx,&flags);
 
         if (flags&2)
         {
           char buf[512];
-          sprintf(buf,"[Voice Chat] %.23s",cn?cn:"");
+          snprintf(buf,sizeof(buf), "[%s] %.23s",__LOCALIZE("Voice Chat","reaninjam"), cn?cn:"");
           SetDlgItemText(hwndDlg,IDC_CHANNELNAME,buf);
         }
         else if (flags&4)
         {
           char buf[512];
-          sprintf(buf,"[Session] %.23s",cn?cn:"");
+          snprintf(buf,sizeof(buf),"[%s] %.23s",__LOCALIZE("Session","reaninjam"), cn?cn:"");
           SetDlgItemText(hwndDlg,IDC_CHANNELNAME,buf);
         }
         else SetDlgItemText(hwndDlg,IDC_CHANNELNAME,cn?cn:"");
@@ -208,10 +230,12 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
 
         CheckDlgButton(hwndDlg,IDC_RECV,sub?BST_CHECKED:0);
         SendDlgItemMessage(hwndDlg,IDC_MUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(m?"track_mute_on":"track_mute_off"));
-        SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(m?"Unmute remote channel":"Mute remote channel"));
+        SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(m?__LOCALIZE("Unmute remote channel","reaninjam"):
+              __LOCALIZE("Mute remote channel","reaninjam")));
         SendDlgItemMessage(hwndDlg,IDC_SOLO,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(s?"track_solo_on":"track_solo_off"));
-        SendDlgItemMessage(hwndDlg,IDC_SOLO,WM_USER+0x300,0xbeef,(LPARAM)(s?"Unsolo remote channel":"Solo remote channel"));
-        
+        SendDlgItemMessage(hwndDlg,IDC_SOLO,WM_USER+0x300,0xbeef,(LPARAM)(s?__LOCALIZE("Unsolo remote channel","reaninjam"):
+              __LOCALIZE("Solo remote channel","reaninjam")));
+
         SendDlgItemMessage(hwndDlg,IDC_VOL,TBM_SETPOS,TRUE,(LPARAM)DB2SLIDER(VAL2DB(v)));
 
         int t=(int)(p*50.0) + 50;
@@ -226,13 +250,25 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
          SetDlgItemText(hwndDlg,IDC_PANLBL,tmp);
         }
 
+        HWND combo = GetDlgItem(hwndDlg,IDC_REMOTEOUT);
+        // if we support mono later this will need some work for indices
+        if ((int)SendMessage(combo,CB_GETCURSEL,0,0) != chidx)
+          SendMessage(combo,CB_SETCURSEL,chidx,0);
+      }
+    break;
+    case WM_LCUSER_REPOP_CH:
+      {
+        int chidx = 0;
+        g_client->GetUserChannelState(user,chan,NULL,NULL,NULL,NULL,NULL,&chidx,NULL);
+        PopulateOutputCombo(GetDlgItem(hwndDlg,IDC_REMOTEOUT),chidx,false);
       }
     break;
     case WM_LCUSER_VUUPDATE:
       {
-        int ival=(int)floor(VAL2DB(g_client->GetUserChannelPeak(user,chan,0))*10.0);
-        int ival2=(int)floor(VAL2DB(g_client->GetUserChannelPeak(user,chan,1))*10.0);
-        SendDlgItemMessage(hwndDlg,IDC_VU,WM_USER+1010,ival,ival2);
+        double pk1=g_client->GetUserChannelPeak(user,chan,0);
+        double pk2=g_client->GetUserChannelPeak(user,chan,1);
+        double p[2] = { VAL2DB(pk1), VAL2DB(pk2) };
+        SendDlgItemMessage(hwndDlg, IDC_VU, WM_USER+1011, 0, (LPARAM)p);
       }
     return 0;
     case WM_HSCROLL:
@@ -240,7 +276,7 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
         double pos=(double)SendMessage((HWND)lParam,TBM_GETPOS,0,0);
 
         g_client->m_remotechannel_rd_mutex.Enter();
-		    if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_VOL))
+        if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_VOL))
         {
           pos=SLIDER2DB(pos);
           if (fabs(pos- -6.0) < 0.5) pos=-6.0;
@@ -252,7 +288,7 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
           mkvolstr(tmp,pos);
           SetDlgItemText(hwndDlg,IDC_VOLLBL,tmp);
         }
-		    else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_PAN))
+        else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_PAN))
         {
           pos=(pos-50.0)/50.0;
           if (fabs(pos) < 0.08) pos=0.0;
@@ -267,6 +303,22 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
     case WM_COMMAND:
       switch (LOWORD(wParam))
       {
+        case IDC_REMOTEOUT:
+          if (HIWORD(wParam) == CBN_SELCHANGE)
+          {
+            int a=(int)SendMessage((HWND)lParam,CB_GETCURSEL,0,0);
+            if (a >= 0)
+            {
+              int idx = (int)SendMessage((HWND)lParam,CB_GETITEMDATA,a,0);
+              if (idx>=0 && idx<2048)
+              {
+                g_client->m_remotechannel_rd_mutex.Enter();
+                g_client->SetUserChannelState(user,chan,false,false,false,0.0,false,0.0,false,false,false,false, true, idx);
+                g_client->m_remotechannel_rd_mutex.Leave();
+              }
+            }
+          }
+        break;
         case IDC_RECV:
           g_client->m_remotechannel_rd_mutex.Enter();
           g_client->SetUserChannelState(user,chan,true,!!IsDlgButtonChecked(hwndDlg,LOWORD(wParam)),false,0.0,false,0.0,false,false,false,false);
@@ -283,7 +335,8 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
             g_client->SetUserChannelState(user,chan,false,false,false,0.0,false,0.0,false,false,true,s);
             g_client->m_remotechannel_rd_mutex.Leave();
             SendDlgItemMessage(hwndDlg,IDC_SOLO,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(s?"track_solo_on":"track_solo_off"));
-            SendDlgItemMessage(hwndDlg,IDC_SOLO,WM_USER+0x300,0xbeef,(LPARAM)(s?"Unsolo remote channel":"Solo remote channel"));
+            SendDlgItemMessage(hwndDlg,IDC_SOLO,WM_USER+0x300,0xbeef,(LPARAM)(s?__LOCALIZE("Unsolo remote channel","reaninjam"):
+                  __LOCALIZE("Solo remote channel","reaninjam")));
           }
         break;
         case IDC_MUTE:
@@ -297,7 +350,8 @@ static WDL_DLGRET RemoteChannelItemProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
             g_client->SetUserChannelState(user,chan,false,false,false,0.0,false,0.0,true,m,false,false);
             g_client->m_remotechannel_rd_mutex.Leave();
             SendDlgItemMessage(hwndDlg,IDC_MUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(m?"track_mute_on":"track_mute_off"));
-            SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(m?"Unmute remote channel":"Mute remote channel"));
+            SendDlgItemMessage(hwndDlg,IDC_MUTE,WM_USER+0x300,0xbeef,(LPARAM)(m?__LOCALIZE("Unmute remote channel","reaninjam"):
+                  __LOCALIZE("Mute remote channel","reaninjam")));
           }
         break;
         case IDC_VOLLBL:
@@ -344,6 +398,7 @@ static WDL_DLGRET RemoteChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
       {
       }
     break;
+    case WM_LCUSER_REPOP_CH:
     case WM_LCUSER_VUUPDATE:
       {
         HWND hwnd=GetWindow(hwndDlg,GW_CHILD);
@@ -354,7 +409,7 @@ static WDL_DLGRET RemoteChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
         {
           SendMessage(hwnd,uMsg,0,a);
           hwnd=GetWindow(hwnd,GW_HWNDNEXT);
-        }        
+        }
         a++;
       }
     break;
@@ -391,7 +446,7 @@ static WDL_DLGRET RemoteChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
             GetWindowRect(h,&r);
             ScreenToClient(hwndDlg,(LPPOINT)&r);
             ScreenToClient(hwndDlg,((LPPOINT)&r) + 1);
-            if (r.top != lastr.bottom) 
+            if (r.top != lastr.bottom)
             {
               SetWindowPos(h,0, 0,lastr.bottom, 0,0, SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
               GetWindowRect(h,&lastr);
@@ -425,7 +480,7 @@ static WDL_DLGRET RemoteChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
             GetWindowRect(h,&r);
             ScreenToClient(hwndDlg,(LPPOINT)&r);
             ScreenToClient(hwndDlg,((LPPOINT)&r)+1);
-            if (r.top != lastr.bottom) 
+            if (r.top != lastr.bottom)
             {
               SetWindowPos(h,0,0,lastr.bottom,0,0,SWP_NOSIZE|SWP_NOZORDER|SWP_NOACTIVATE);
               GetWindowRect(h,&lastr);
@@ -433,9 +488,9 @@ static WDL_DLGRET RemoteChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
               ScreenToClient(hwndDlg,((LPPOINT)&lastr)+1);
             }
             else lastr=r;
-            
+
             SendMessage(h,WM_RCUSER_UPDATE,(WPARAM)us,(LPARAM)i);
-      
+
             pos++;
           }
         }
@@ -453,7 +508,7 @@ static WDL_DLGRET RemoteChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, 
         {
           SetWindowPos(hwndDlg,NULL,0,0,lastr.right,lastr.bottom,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE); // size ourself
         }
-        
+
       }
       // update channel list, creating and destroying window as necessary
     break;
@@ -477,13 +532,14 @@ HWND g_remote_channel_wnd;
 WDL_DLGRET RemoteOuterChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
   static int m_wh, m_ww,m_nScrollPos,m_nScrollPos_w;
-  static int m_h, m_maxpos_h, m_w,m_maxpos_w; 
+  static int m_h, m_maxpos_h, m_w,m_maxpos_w;
   switch (uMsg)
   {
 
     case WM_INITDIALOG:
       m_h=m_maxpos_h=m_w=m_maxpos_w=0;
       m_nScrollPos=m_nScrollPos_w=0;
+      WDL_FALLTHROUGH;
     case WM_RCUSER_UPDATE:
     case WM_LCUSER_RESIZE:
       {
@@ -562,46 +618,47 @@ WDL_DLGRET RemoteOuterChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LP
 
       // update scrollbars and shit
     return 0;
+    case WM_LCUSER_REPOP_CH:
     case WM_LCUSER_VUUPDATE:
       SendMessage(g_remote_channel_wnd,uMsg,wParam,lParam);
     break;
     case WM_VSCROLL:
       {
         int nSBCode=LOWORD(wParam);
-	      int nDelta=0;
+        int nDelta=0;
 
-	      int nMaxPos = m_maxpos_h;
+        int nMaxPos = m_maxpos_h;
 
-	      switch (nSBCode)
-	      {
+        switch (nSBCode)
+        {
           case SB_TOP:
             nDelta = - m_nScrollPos;
           break;
           case SB_BOTTOM:
             nDelta = nMaxPos - m_nScrollPos;
           break;
-	        case SB_LINEDOWN:
-		        if (m_nScrollPos < nMaxPos) nDelta = min(4,nMaxPos-m_nScrollPos);
-		      break;
-	        case SB_LINEUP:
-		        if (m_nScrollPos > 0) nDelta = -min(4,m_nScrollPos);
+          case SB_LINEDOWN:
+            if (m_nScrollPos < nMaxPos) nDelta = min(4,nMaxPos-m_nScrollPos);
+          break;
+          case SB_LINEUP:
+            if (m_nScrollPos > 0) nDelta = -min(4,m_nScrollPos);
           break;
           case SB_PAGEDOWN:
-		        if (m_nScrollPos < nMaxPos) nDelta = min(nMaxPos/4,nMaxPos-m_nScrollPos);
-		      break;
+            if (m_nScrollPos < nMaxPos) nDelta = min(nMaxPos/4,nMaxPos-m_nScrollPos);
+          break;
           case SB_THUMBTRACK:
-	        case SB_THUMBPOSITION:
-		        nDelta = (int)HIWORD(wParam) - m_nScrollPos;
-		      break;
-	        case SB_PAGEUP:
-		        if (m_nScrollPos > 0) nDelta = -min(nMaxPos/4,m_nScrollPos);
-		      break;
-	      }
-        if (nDelta) 
+          case SB_THUMBPOSITION:
+            nDelta = (int)HIWORD(wParam) - m_nScrollPos;
+          break;
+          case SB_PAGEUP:
+            if (m_nScrollPos > 0) nDelta = -min(nMaxPos/4,m_nScrollPos);
+          break;
+        }
+        if (nDelta)
         {
           m_nScrollPos += nDelta;
-	        CoolSB_SetScrollPos(hwndDlg,SB_VERT,m_nScrollPos,TRUE);
-	        ScrollWindow(hwndDlg,0,-nDelta,NULL,NULL);
+          CoolSB_SetScrollPos(hwndDlg,SB_VERT,m_nScrollPos,TRUE);
+          ScrollWindow(hwndDlg,0,-nDelta,NULL,NULL);
         }
       }
     break;
@@ -609,43 +666,43 @@ WDL_DLGRET RemoteOuterChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LP
     case WM_HSCROLL:
       {
         int nSBCode=LOWORD(wParam);
-	      int nDelta=0;
+        int nDelta=0;
 
-	      int nMaxPos = m_maxpos_w;
+        int nMaxPos = m_maxpos_w;
 
-	      switch (nSBCode)
-	      {
+        switch (nSBCode)
+        {
           case SB_TOP:
             nDelta = - m_nScrollPos_w;
           break;
           case SB_BOTTOM:
             nDelta = nMaxPos - m_nScrollPos_w;
           break;
-	        case SB_LINEDOWN:
-		        if (m_nScrollPos_w < nMaxPos) nDelta = min(nMaxPos/100,nMaxPos-m_nScrollPos_w);
-		      break;
-	        case SB_LINEUP:
-		        if (m_nScrollPos_w > 0) nDelta = -min(nMaxPos/100,m_nScrollPos_w);
+          case SB_LINEDOWN:
+            if (m_nScrollPos_w < nMaxPos) nDelta = min(nMaxPos/100,nMaxPos-m_nScrollPos_w);
+          break;
+          case SB_LINEUP:
+            if (m_nScrollPos_w > 0) nDelta = -min(nMaxPos/100,m_nScrollPos_w);
           break;
           case SB_PAGEDOWN:
-		        if (m_nScrollPos_w < nMaxPos) nDelta = min(nMaxPos/10,nMaxPos-m_nScrollPos_w);
-		      break;
+            if (m_nScrollPos_w < nMaxPos) nDelta = min(nMaxPos/10,nMaxPos-m_nScrollPos_w);
+          break;
           case SB_THUMBTRACK:
-	        case SB_THUMBPOSITION:
-		        nDelta = (int)HIWORD(wParam) - m_nScrollPos_w;
-		      break;
-	        case SB_PAGEUP:
-		        if (m_nScrollPos_w > 0) nDelta = -min(nMaxPos/10,m_nScrollPos_w);
-		      break;
-	      }
-        if (nDelta) 
+          case SB_THUMBPOSITION:
+            nDelta = (int)HIWORD(wParam) - m_nScrollPos_w;
+          break;
+          case SB_PAGEUP:
+            if (m_nScrollPos_w > 0) nDelta = -min(nMaxPos/10,m_nScrollPos_w);
+          break;
+        }
+        if (nDelta)
         {
           m_nScrollPos_w += nDelta;
-	        CoolSB_SetScrollPos(hwndDlg,SB_HORZ,m_nScrollPos_w,TRUE);
-	        ScrollWindow(hwndDlg,-nDelta,0,NULL,NULL);
+          CoolSB_SetScrollPos(hwndDlg,SB_HORZ,m_nScrollPos_w,TRUE);
+          ScrollWindow(hwndDlg,-nDelta,0,NULL,NULL);
         }
       }
-    break; 
+    break;
 #endif
     case WM_CTLCOLOREDIT:
     case WM_CTLCOLORLISTBOX:

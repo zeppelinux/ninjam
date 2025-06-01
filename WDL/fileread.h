@@ -48,10 +48,10 @@
   
   #if !defined(WDL_NO_POSIX_FILEREAD)
   #define WDL_POSIX_NATIVE_READ 
-   #include <sys/fcntl.h>
+   #include <fcntl.h>
+   #include <errno.h>
    #include <sys/file.h>
    #include <sys/stat.h>
-   #include <sys/errno.h>
    #include <sys/mman.h>
    #ifdef __APPLE__
       #include <sys/param.h>
@@ -115,6 +115,7 @@ public:
         else if (c <= 0xF4 && str[1] >=0x80 && str[1] <= 0xBF && str[2] >=0x80 && str[2] <= 0xBF) return TRUE;
       }
       str++;
+      if (((const char *)str-_str) >= 256) return TRUE; // long filenames get converted to wide
     }
     return FALSE;
   }
@@ -123,7 +124,7 @@ public:
 public:
   // allow_async=1 for unbuffered async, 2 for buffered async, =-1 for unbuffered sync
   // async aspect is unused on OS X, but the buffered mode affects F_NOCACHE
-  WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0) : m_bufspace(4096 WDL_HEAPBUF_TRACEPARM("WDL_FileRead"))
+  WDL_FileRead(const char *filename, int allow_async=1, int bufsize=8192, int nbufs=4, unsigned int mmap_minsize=0, unsigned int mmap_maxsize=0) : m_bufspace(4096)
   {
     m_async_hashaderr=false;
     m_sync_bufmode_used=m_sync_bufmode_pos=0;
@@ -165,10 +166,11 @@ public:
       if (szreq > 1000)
       {
         WDL_TypedBuf<WCHAR> wfilename;
-        wfilename.Resize(szreq+10);
+        wfilename.Resize(szreq+20);
 
-        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()))
+        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename.Get(),wfilename.GetSize()-10))
         {
+          correctlongpath(wfilename.Get());
           m_fh = CreateFileW(wfilename.Get(),GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
           if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
           {
@@ -181,8 +183,9 @@ public:
       {
         WCHAR wfilename[1024];
 
-        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024))
+        if (MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,filename,-1,wfilename,1024-10))
         {
+          correctlongpath(wfilename);
           m_fh = CreateFileW(wfilename,GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,flags,NULL);
           if (m_fh == INVALID_HANDLE_VALUE && GetLastError()==ERROR_SHARING_VIOLATION)
           {
@@ -290,7 +293,7 @@ public:
 
       if (m_fsize < mmap_maxsize)
       {
-        if (m_fsize >= mmap_minsize)
+        if (m_fsize >= mmap_minsize && m_fsize>0)
         {
           m_mmap_view = mmap(NULL,(size_t)m_fsize,PROT_READ,MAP_SHARED,m_filedes,0);
           if (m_mmap_view == MAP_FAILED) m_mmap_view = 0;
@@ -299,7 +302,7 @@ public:
         else
         {
           m_mmap_totalbufmode = malloc((size_t)m_fsize);
-          if (m_mmap_totalbufmode)
+          if (m_mmap_totalbufmode && m_fsize>0)
             m_fsize = pread(m_filedes,m_mmap_totalbufmode,(size_t)m_fsize,0);
           m_fsize_maychange=false;
         }
@@ -450,7 +453,6 @@ public:
 
   int AsyncRead(char *buf, int maxlen)
   {
-    char *obuf=buf;
     int lenout=0;
     if (m_file_position+maxlen > m_fsize)
     {
@@ -814,6 +816,27 @@ public:
   bool m_syncrd_firstbuf;
   bool m_async_hashaderr;
 
+#ifdef _WIN32
+  static void correctlongpath(WCHAR *buf) // this also exists as wdl_utf8_correctlongpath
+  {
+    const WCHAR *insert;
+    WCHAR *wr;
+    int skip = 0;
+    if (!buf || !buf[0] || wcslen(buf) < 256) return;
+    if (buf[1] == ':') insert=L"\\\\?\\";
+    else if (buf[0] == '\\' && buf[1] == '\\') { insert = L"\\\\?\\UNC\\"; skip=2; }
+    else return;
+
+    wr = buf + wcslen(insert);
+    memmove(wr, buf + skip, (wcslen(buf+skip)+1)*2);
+    memmove(buf,insert,wcslen(insert)*2);
+    while (*wr)
+    {
+      if (*wr == '/') *wr = '\\';
+      wr++;
+    }
+  }
+#endif
 } WDL_FIXALIGN;
 
 

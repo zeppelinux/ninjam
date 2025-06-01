@@ -39,11 +39,9 @@ void vwnd_slider_drawknobstack(LICE_IBitmap *drawbm, double val, WDL_VirtualWnd_
 
   const int ni=((v ? knobimage->bgimage->getHeight() : knobimage->bgimage->getWidth())-ks_offs*2) / (v ? ksh : ksw);
 
-  if (val<0.0)val=0.0;
-  else if (val>1.0)val=1.0;
-  int p=(int) (val * (ni-1));
+  int p=(int) floor(wdl_clamp(val,0.0,1.0) * (ni-1) + 0.49999);
+  if (p > ni-1) p=ni-1;
   if (p<0) p=0;
-  else if (p> ni-1) p=ni-1;
 
   p *= (v ? ksh : ksw);
 
@@ -167,6 +165,8 @@ WDL_VirtualWnd_BGCfg *vwnd_slider_getknobimageforsize(WDL_VirtualWnd_BGCfg *knob
 
 WDL_VirtualSlider::WDL_VirtualSlider()
 {
+  calculate_slider_position=NULL;
+  calculate_slider_position_ctx=NULL;
   m_accessDescCopy=0;
   m_knob_lineextrasize=0;
   m_knobbias=0;
@@ -354,6 +354,13 @@ WDL_VirtualWnd_BGCfg *WDL_VirtualSlider::getKnobBackgroundForSize(int sz) const
 
 void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *cliprect, int rscale)
 {
+  if (!m_captured && calculate_slider_position)
+  {
+    int pos = calculate_slider_position(this,calculate_slider_position_ctx);
+    if (pos < m_minr) pos=m_minr;
+    else if (pos>m_maxr) pos=m_maxr;
+    m_pos = pos;
+  }
   RECT mp;
   m_last_advscale = drawbm ? (int)drawbm->Extended(LICE_EXT_GET_ADVISORY_SCALING,NULL) : 0;
   m_last_rscale=rscale;
@@ -535,7 +542,17 @@ void WDL_VirtualSlider::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y
         int cy=origin_y+viewh/2;
         float rd = (float) (vieww/2-4 + m_knob_lineextrasize);
         float r2=rd*0.125f;
-        if (!back_image) LICE_Circle(drawbm, (float)cx, (float)cy, rd, col, lalpha, LICE_BLIT_MODE_COPY, true);
+        if (!back_image)
+        {
+          LICE_pixel bgcol = col;
+          if (m_bgcol1_msg)
+          {
+            int brcol=-100;
+            SendCommand(m_bgcol1_msg,(INT_PTR)&brcol,GetID(),this);
+            if (brcol != -100) bgcol = LICE_RGBA_FROMNATIVE(brcol);
+          }
+          LICE_Circle(drawbm, (float)cx, (float)cy, rd, bgcol, lalpha, LICE_BLIT_MODE_COPY, true);
+        }
       
         #define KNOBANGLE_MAX (3.14159*7.0/8.0);
         float a = val*(float)KNOBANGLE_MAX;
@@ -712,36 +729,20 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
     m_click_pos=m_pos;
     if (!m_is_knob && (m_move_offset < 0 || m_move_offset >= bm_h))
     {
-      int xcent=xpos - vieww/2;
-      bool hit;
+      m_move_offset=bm_h/2;
+      int pos=(int)(m_minr+((viewh-bm_h - (ypos-m_move_offset))*rsize)/(double)(viewh-bm_h));
+      if (pos < m_minr)pos=m_minr;
+      else if (pos > m_maxr)pos=m_maxr;
+      m_pos=pos;
 
-      if (m_skininfo && m_skininfo->bgimagecfg[1].bgimage)
+      needsendcmd=false;
+      WDL_VWND_DCHK(chk);
+      SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
+      if (chk.isOK())
       {
-        LICE_pixel pix=WDL_VirtualWnd_ScaledBG_GetPix(&m_skininfo->bgimagecfg[1],
-          vieww,viewh,xpos,ypos);
-
-        hit = LICE_GETA(pix)>=64;
+        RequestRedraw(NULL);
+        if (m__iaccess) m__iaccess->OnStateChange();
       }
-      else hit= (xcent >= -2 && xcent < 3 && ypos >= bm_h/3 && ypos <= viewh-bm_h/3);
-
-      if (hit)
-      {
-        m_move_offset=bm_h/2;
-        int pos=(int)(m_minr+((viewh-bm_h - (ypos-m_move_offset))*rsize)/(double)(viewh-bm_h));
-        if (pos < m_minr)pos=m_minr;
-        else if (pos > m_maxr)pos=m_maxr;
-        m_pos=pos;
-
-        needsendcmd=false;
-        WDL_VWND_DCHK(chk);
-        SendCommand(m_scrollmsg?m_scrollmsg:WM_VSCROLL,SB_THUMBTRACK,GetID(),this);
-        if (chk.isOK()) 
-        {
-          RequestRedraw(NULL);
-          if (m__iaccess) m__iaccess->OnStateChange();
-        }
-      }
-      else return 0;
     }
   }
   else
@@ -750,36 +751,20 @@ int WDL_VirtualSlider::OnMouseDown(int xpos, int ypos)
     m_click_pos=m_pos;
     if (m_move_offset < 0 || m_move_offset >= bm_w)
     {
-      int ycent=ypos - viewh/2;
+      m_move_offset=bm_w/2;
+      int pos=(int) (m_minr+((xpos-m_move_offset)*rsize)/(double)(vieww-bm_w));
+      if (pos < m_minr)pos=m_minr;
+      else if (pos > m_maxr)pos=m_maxr;
+      m_pos=pos;
 
-      bool hit;
-      if (m_skininfo && m_skininfo->bgimagecfg[0].bgimage)
+      needsendcmd=false;
+      WDL_VWND_DCHK(chk);
+      SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
+      if (chk.isOK())
       {
-        LICE_pixel pix=WDL_VirtualWnd_ScaledBG_GetPix(&m_skininfo->bgimagecfg[0],
-          vieww,viewh,xpos,ypos);
-
-        hit = LICE_GETA(pix)>=64;
+        RequestRedraw(NULL);
+        if (m__iaccess) m__iaccess->OnStateChange();
       }
-      else hit = (ycent >= -2 && ycent < 3 && xpos >= bm_w/3 && xpos <= vieww-bm_w/3);
-
-      if (hit)
-      {
-        m_move_offset=bm_w/2;
-        int pos=(int) (m_minr+((xpos-m_move_offset)*rsize)/(double)(vieww-bm_w));
-        if (pos < m_minr)pos=m_minr;
-        else if (pos > m_maxr)pos=m_maxr;
-        m_pos=pos;
-
-        needsendcmd=false;
-        WDL_VWND_DCHK(chk);
-        SendCommand(m_scrollmsg?m_scrollmsg:WM_HSCROLL,SB_THUMBTRACK,GetID(),this);
-        if (chk.isOK())
-        {
-          RequestRedraw(NULL);
-          if (m__iaccess) m__iaccess->OnStateChange();
-        }
-      }
-      else return 0;
     }
   }
 
@@ -988,7 +973,13 @@ void WDL_VirtualSlider::OnMoveOrUp(int xpos, int ypos, int isup)
 #endif
       }
     }
-    do m_last_precmode++; while (ShowCursor(FALSE)>=0);
+    int v;
+    do m_last_precmode++; while ((v=ShowCursor(FALSE))>=0);
+    if (v < -3 && m_last_precmode>1)
+    {
+      m_last_precmode--;
+      ShowCursor(TRUE);
+    }
   }
   else
   {
@@ -1062,7 +1053,7 @@ bool WDL_VirtualSlider::OnMouseDblClick(int xpos, int ypos)
   return true;
 }
 
-bool WDL_VirtualSlider::OnMouseWheel(int xpos, int ypos, int amt)
+bool WDL_VirtualSlider::OnMouseWheelInternal(int xpos, int ypos, int amt, int sc)
 {
   if (m_grayed) return false;
 
@@ -1072,15 +1063,20 @@ bool WDL_VirtualSlider::OnMouseWheel(int xpos, int ypos, int amt)
   }
 
   bool isVert = GetIsVert();
-	int l=amt;
+  int l=amt;
   if (!(GetAsyncKeyState(VK_CONTROL)&0x8000)) l *= 16;
   l *= (m_maxr-m_minr);
   l/=120000;
   if (!l) { if (amt<0)l=-1; else if (amt>0) l=1; }
 
+  if (sc==10000)
+    l = amt<0 ? -m_pos : m_maxr - m_pos;
+  else if (sc>0)
+    l *= sc;
+
   int pos=m_pos+l;
-  if (pos < m_minr)pos=m_minr;
-  else if (pos > m_maxr)pos=m_maxr;
+  if (pos < m_minr) pos=m_minr;
+  else if (pos > m_maxr) pos=m_maxr;
 
   m_pos=pos;
 

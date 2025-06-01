@@ -1,21 +1,8 @@
 #ifndef _WDL_DENORMAL_H_
 #define _WDL_DENORMAL_H_
 
-typedef struct 
-{ 
-  #ifdef __ppc__ // todo: other big endian platforms...
-    unsigned int hw; 
-    unsigned int lw;
-  #else
-    unsigned int lw; 
-    unsigned int hw;
-  #endif
-} WDL_DenormalTwoInts;
-
-typedef union { double fl; WDL_DenormalTwoInts w; } WDL_DenormalDoubleAccess;
-typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
-
-
+#include <string.h>
+#include "wdltypes.h"
 // note: the _aggressive versions filter out anything less than around 1.0e-16 or so (approximately) to 0.0, including -0.0 (becomes 0.0)
 // note: new! the _aggressive versions also filter inf and NaN to 0.0
 
@@ -31,13 +18,8 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
   #endif
 #endif
 
-#define WDL_DENORMAL_DOUBLE_HW(a) (((const WDL_DenormalDoubleAccess*)(a))->w.hw)
-#define WDL_DENORMAL_DOUBLE_LW(a) (((const WDL_DenormalDoubleAccess*)(a))->w.lw)
-#define WDL_DENORMAL_FLOAT_W(a) (((const WDL_DenormalFloatAccess*)(a))->w)
-
-#define WDL_DENORMAL_DOUBLE_HW_NC(a) (((WDL_DenormalDoubleAccess*)(a))->w.hw)
-#define WDL_DENORMAL_DOUBLE_LW_NC(a) (((WDL_DenormalDoubleAccess*)(a))->w.lw)
-#define WDL_DENORMAL_FLOAT_W_NC(a) (((WDL_DenormalFloatAccess*)(a))->w)
+static WDL_DENORMAL_INLINE unsigned int WDL_DENORMAL_FLOAT_W(const float *a) { unsigned int v; memcpy(&v,a,sizeof(v)); return v; }
+static WDL_DENORMAL_INLINE unsigned int WDL_DENORMAL_DOUBLE_HW(const double *a) { WDL_UINT64 v; memcpy(&v,(char*)a,sizeof(v)); return (unsigned int) (v>>32); }
 
 #define WDL_DENORMAL_DOUBLE_AGGRESSIVE_CUTOFF 0x3cA00000 // 0x3B8000000 maybe instead? that's 10^-5 smaller or so
 #define WDL_DENORMAL_FLOAT_AGGRESSIVE_CUTOFF 0x25000000
@@ -48,7 +30,7 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
 //
 #ifdef WDL_DENORMAL_WANTS_SCOPED_FTZ
 
-#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_WIN64)
+#if defined(__SSE2__) || _M_IX86_FP >= 2 || defined(_M_X64)
   #define WDL_DENORMAL_FTZMODE
   #define WDL_DENORMAL_FTZSTATE_TYPE unsigned int
   #ifdef _MSC_VER
@@ -59,9 +41,9 @@ typedef union { float fl; unsigned int w; } WDL_DenormalFloatAccess;
   #define wdl_denorm_mm_getcsr() _mm_getcsr() 
   #define wdl_denorm_mm_setcsr(x) _mm_setcsr(x) 
   #if defined(__SSE3__)
-    #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11) | (1<<8) | (1<<6)) // FTZ, underflow, denormal mask, DAZ  
+    #define wdl_denorm_mm_csr_mask (32768|4096|2048|1024|512|256|128|64) // FTZ, all exceptions, DAZ
   #else
-    #define wdl_denorm_mm_csr_mask ((1<<15)|(1<<11)) // FTZ and underflow only (target SSE2)
+    #define wdl_denorm_mm_csr_mask (32768|4096|2048|1024|512|256|128) // FTZ and all exceptions (target SSE2)
   #endif
 #elif defined(__arm__) || defined(__aarch64__)
   #define WDL_DENORMAL_FTZMODE
@@ -239,18 +221,20 @@ static void WDL_DENORMAL_INLINE denormal_fix_aggressive(float *a)
 
 static void WDL_DENORMAL_INLINE GetDoubleMaxAbsValue(double *out, const double *in) // note: the value pointed to by "out" must be >=0.0, __NOT__ <= -0.0
 {
-  unsigned int hw = WDL_DENORMAL_DOUBLE_HW(in)&0x7fffffff;
-  if (hw >= WDL_DENORMAL_DOUBLE_HW(out) && (hw>WDL_DENORMAL_DOUBLE_HW(out) || WDL_DENORMAL_DOUBLE_LW(in) > WDL_DENORMAL_DOUBLE_LW(out)))
-  {
-    WDL_DENORMAL_DOUBLE_LW_NC(out) = WDL_DENORMAL_DOUBLE_LW(in);
-    WDL_DENORMAL_DOUBLE_HW_NC(out) = hw;
-  }
+  WDL_UINT64 i, o;
+  memcpy(&i,in,sizeof(i));
+  memcpy(&o,out,sizeof(o));
+  i &= WDL_UINT64_CONST(0x7fffffffffffffff);
+  if (i > o) memcpy(out,&i,sizeof(i));
 }
 
 static void WDL_DENORMAL_INLINE GetFloatMaxAbsValue(float *out, const float *in) // note: the value pointed to by "out" must be >=0.0, __NOT__ <= -0.0
 {
-  unsigned int hw = WDL_DENORMAL_FLOAT_W(in)&0x7fffffff;
-  if (hw > WDL_DENORMAL_FLOAT_W(out)) WDL_DENORMAL_FLOAT_W_NC(out)=hw;
+  unsigned int i, o;
+  memcpy(&i, in, sizeof(i));
+  memcpy(&o, out, sizeof(o));
+  i &= 0x7fffffff;
+  if (i > o) memcpy(out, &i, sizeof(i));
 }
 
 

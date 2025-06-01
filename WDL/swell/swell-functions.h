@@ -211,7 +211,7 @@ SWELL_API_DEFINE(int, GetWindowTextLength,(HWND))
 #endif
 
 
-SWELL_API_DEFINE(void, CheckDlgButton,(HWND hwnd, int idx, int check))
+SWELL_API_DEFINE(BOOL, CheckDlgButton,(HWND hwnd, int idx, int check))
 SWELL_API_DEFINE(int, IsDlgButtonChecked,(HWND hwnd, int idx))
 SWELL_API_DEFINE(void, EnableWindow,(HWND hwnd, int enable))
 SWELL_API_DEFINE(void, SetFocus,(HWND hwnd))
@@ -400,6 +400,7 @@ SWELL_API_DEFINE(void, ListView_SetExtendedListViewStyleEx,(HWND h, int mask, in
 SWELL_API_DEFINE(void, ListView_InsertColumn,(HWND h, int pos, const LVCOLUMN *lvc))
 SWELL_API_DEFINE(bool, ListView_DeleteColumn,(HWND h, int pos))
 SWELL_API_DEFINE(void, ListView_SetColumn,(HWND h, int pos, const LVCOLUMN *lvc))
+SWELL_API_DEFINE(void, ListView_GetColumn,(HWND h, int pos, LVCOLUMN *lvc))
 SWELL_API_DEFINE(int, ListView_GetColumnWidth,(HWND h, int pos))
 SWELL_API_DEFINE(int, ListView_InsertItem,(HWND h, const LVITEM *item))
 SWELL_API_DEFINE(void, ListView_SetItemText,(HWND h, int ipos, int cpos, const char *txt))
@@ -686,6 +687,8 @@ SWELL_API_DEFINE(void, SWELL_MessageQueue_Clear,(HWND h))
 ** Pass a keyboard NSEvent *, and it will return a windows VK_ keycode (or ascii), and set flags, 
 ** including (possibly) FSHIFT, FCONTROL (apple key), FALT, and FVIRTKEY. The ctrl key is not checked,
 ** as SWELL generally encourages this to be used soley for a right mouse button (as modifier).
+** flags may also include 0x1000000 for arrow keys and home/end (matching the lParam behavior of win32),
+** or for numeric keypad enter
 */
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_MacKeyToWindowsKey,(void *nsevent, int *flags))
@@ -962,10 +965,12 @@ SWELL_API_DEFINE(void, SetAllowNoMiddleManRendering, (HWND h, bool allow)) // de
 #ifdef SWELL_TARGET_OSX
 SWELL_API_DEFINE(int, SWELL_IsRetinaDC, (HDC hdc)) // returns 1 if DC is a retina DC (2x res possible)
 SWELL_API_DEFINE(int, SWELL_IsRetinaHWND, (HWND h)) // returns 1 if HWND is a retina HWND
-SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, bool wantGL))
+SWELL_API_DEFINE(void, SWELL_SetNoMultiMonitorAutoSize, (HWND h, bool noauto))
+#endif
+
+SWELL_API_DEFINE(void, SWELL_SetViewGL, (HWND h, char wantGL)) // wantGL=2 to enable wantsBestResolutionOpenGLSurface
 SWELL_API_DEFINE(bool, SWELL_GetViewGL, (HWND h))
 SWELL_API_DEFINE(bool, SWELL_SetGLContextToView, (HWND h)) // sets GL context to that view, returns TRUE if successs (use NULL to clear GL context)
-#endif
 
 #if defined(SWELL_TARGET_OSX)
 SWELL_API_DEFINE(int, SWELL_EnableMetal,(HWND h, int mode)) // can only call once per window. calling with 0 does nothing. 1=metal enabled, 2=metal enabled and support GetDC()/ReleaseDC() for drawing (more overhead). returns metal setting. mode=-1 for non-metal async layered mode. mode=-2 for non-metal non-async layered mode
@@ -1055,7 +1060,9 @@ SWELL_API_DEFINE(void,GetTempPath,(int sz, char *buf))
 #ifndef SWELL_TARGET_OSX
 SWELL_API_DEFINE(void,SWELL_initargs,(int *argc, char ***argv))
 SWELL_API_DEFINE(void,SWELL_RunMessageLoop,())
-SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, RECT*))
+SWELL_API_DEFINE(HWND,SWELL_CreateXBridgeWindow,(HWND viewpar, void **wref, const RECT*))
+SWELL_API_DEFINE(void*,SWELL_GetOSWindow,(HWND hwnd, const char *type)) // type should be "GdkWindow"
+SWELL_API_DEFINE(void*,SWELL_GetOSEvent,(const char *type)) // type should be "GdkEvent"
 #endif
 
 SWELL_API_DEFINE(bool,SWELL_GenerateGUID,(void *g))
@@ -1086,5 +1093,8 @@ SWELL_API_DEFINE(int, GetClassName, (HWND, char *, int)) // only partially imple
 SWELL_API_DEFINE(void, SWELL_SetClassName, (HWND, const char*)) // must pass a static string!
 
 SWELL_API_DEFINE(void, SWELL_DisableContextMenu, (HWND, bool))
+
+SWELL_API_DEFINE(BOOL, EnumDisplayMonitors, (HDC,const LPRECT,MONITORENUMPROC,LPARAM))
+SWELL_API_DEFINE(BOOL, GetMonitorInfo, (HMONITOR, void *))
 
 #endif // _WDL_SWELL_H_API_DEFINED_

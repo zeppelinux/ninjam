@@ -27,6 +27,8 @@ WDL_WIN32_HIDPI_IMPL void WDL_mmSetWindowPos(HWND hwnd, HWND hwndAfter, int x, i
 #undef SetWindowPos
 #endif
   static char init;
+  WDL_ASSERT((f & SWP_NOSIZE) || w>=0);
+  WDL_ASSERT((f & SWP_NOSIZE) || h>=0);
 
   if (!init)
   {
@@ -46,7 +48,9 @@ WDL_WIN32_HIDPI_IMPL void WDL_mmSetWindowPos(HWND hwnd, HWND hwndAfter, int x, i
     }
   }
 
-  if (init == 2 && hwnd &&
+  if (WDL_NOT_NORMALLY(hwnd == NULL)) return;
+
+  if (init == 2 &&
     !(f&(SWP_NOMOVE|SWP_NOSIZE|SWP__NOMOVETHENSIZE|SWP_ASYNCWINDOWPOS)) &&
     !(GetWindowLong(hwnd,GWL_STYLE)&WS_CHILD))
   {

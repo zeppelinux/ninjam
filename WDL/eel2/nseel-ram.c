@@ -44,10 +44,10 @@ int NSEEL_RAM_memused_errors=0;
 
 int NSEEL_VM_wantfreeRAM(NSEEL_VMCTX ctx)
 {
-	if (ctx)
+  if (ctx)
   {
     compileContext *c=(compileContext*)ctx;
-    if (c->ram_state.needfree) 
+    if (c->ram_state->needfree)
       return 1;
   }
   return 0;
@@ -55,38 +55,38 @@ int NSEEL_VM_wantfreeRAM(NSEEL_VMCTX ctx)
 
 void NSEEL_VM_freeRAMIfCodeRequested(NSEEL_VMCTX ctx) // check to see if our free flag was set
 {
-	if (ctx)
-	{
-  	compileContext *c=(compileContext*)ctx;
-  	if (c->ram_state.needfree) 
-		{
+  if (ctx)
+  {
+    compileContext *c=(compileContext*)ctx;
+    if (c->ram_state->needfree) 
+    {
       NSEEL_HOSTSTUB_EnterMutex();
       {
-			  INT_PTR startpos=((INT_PTR)c->ram_state.needfree)-1;
-	 		  EEL_F **blocks = c->ram_state.blocks;
-			  INT_PTR pos=0;
-			  int x;
-  		  for (x = 0; x < NSEEL_RAM_BLOCKS; x ++)
-  		  {
-				  if (pos >= startpos)
-				  {
-					  if (blocks[x])
-					  {
-						  if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
-							  NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
-						  else NSEEL_RAM_memused_errors++;
-       	 	    free(blocks[x]);
-       	 	    blocks[x]=0;
-					  }
-				  }
-				  pos+=NSEEL_RAM_ITEMSPERBLOCK;
- 			  }
-			  c->ram_state.needfree=0;
+        INT_PTR startpos=((INT_PTR)c->ram_state->needfree)-1;
+         EEL_F **blocks = c->ram_state->blocks;
+        INT_PTR pos=0;
+        int x;
+        for (x = 0; x < NSEEL_RAM_BLOCKS; x ++)
+        {
+          if (pos >= startpos)
+          {
+            if (blocks[x])
+            {
+              if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
+                NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
+              else NSEEL_RAM_memused_errors++;
+                free(blocks[x]);
+                blocks[x]=0;
+            }
+          }
+          pos+=NSEEL_RAM_ITEMSPERBLOCK;
+         }
+        c->ram_state->needfree=0;
       }
       NSEEL_HOSTSTUB_LeaveMutex();
-		}
+    }
 
-	}
+  }
 }
 
 EEL_F nseel_ramalloc_onfail;
@@ -101,7 +101,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
   {
     EEL_F **pblocks=*blocks;
 
-    if (w < NSEEL_RAM_BLOCKS*NSEEL_RAM_ITEMSPERBLOCK)
+    if (w < NSEEL_RAM_BLOCKS_GMEM_NAMED*NSEEL_RAM_ITEMSPERBLOCK)
     {
       const unsigned int whichblock = w/NSEEL_RAM_ITEMSPERBLOCK;
       EEL_F *p=NULL;
@@ -110,7 +110,7 @@ EEL_F * NSEEL_CGEN_CALL __NSEEL_RAMAllocGMEM(EEL_F ***blocks, unsigned int w)
         NSEEL_HOSTSTUB_EnterMutex();
         if (!nseel_gmem_calloc) nseel_gmem_calloc=calloc;
 
-        if (!(pblocks=*blocks)) pblocks = *blocks = (EEL_F **)nseel_gmem_calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS);
+        if (!(pblocks=*blocks)) pblocks = *blocks = (EEL_F **)nseel_gmem_calloc(sizeof(EEL_F *),NSEEL_RAM_BLOCKS_GMEM_NAMED);
         else p = pblocks[whichblock];
 
         if (!p && pblocks)
@@ -150,15 +150,15 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
       if (!(p=pblocks[whichblock]))
       {
 
-      	const int msize=sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
-      	if (!NSEEL_RAM_limitmem || NSEEL_RAM_memused+msize < NSEEL_RAM_limitmem) 
-      	{
-	      	p=pblocks[whichblock]=(EEL_F *)calloc(sizeof(EEL_F),NSEEL_RAM_ITEMSPERBLOCK);
-      		if (p) NSEEL_RAM_memused+=msize;
-      	}
+        const int msize=sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
+        if (!NSEEL_RAM_limitmem || NSEEL_RAM_memused+msize < NSEEL_RAM_limitmem) 
+        {
+          p=pblocks[whichblock]=(EEL_F *)calloc(sizeof(EEL_F),NSEEL_RAM_ITEMSPERBLOCK);
+          if (p) NSEEL_RAM_memused+=msize;
+        }
       }
       NSEEL_HOSTSTUB_LeaveMutex();
-    }	  
+    }    
     if (p) return p + (w&(NSEEL_RAM_ITEMSPERBLOCK-1));
   }
 //  fprintf(stderr,"ret 0\n");
@@ -168,25 +168,142 @@ EEL_F * NSEEL_CGEN_CALL  __NSEEL_RAMAlloc(EEL_F **pblocks, unsigned int w)
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemFree(void *blocks, EEL_F *which)
 {
-  // blocks points to ram_state.blocks, so back it up past closefact and maxblocks to needfree
+  // blocks points to ram_state->blocks, so back it up past closefact and maxblocks to needfree
   int *flag = (int *)((char *)blocks - sizeof(double) - 2*sizeof(int));
-	int d=(int)(*which);
-	if (d < 0) d=0;
-	if (d < flag[1]*NSEEL_RAM_ITEMSPERBLOCK) flag[0]=1+d;
-	return which;
+  int d=(int)(*which);
+  if (d < 0) d=0;
+  if (d < flag[1]*NSEEL_RAM_ITEMSPERBLOCK) flag[0]=1+d;
+  return which;
 }
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemTop(void *blocks, EEL_F *which)
 {
-  // blocks points to ram_state.blocks, so back it up past closefact to maxblocks
+  // blocks points to ram_state->blocks, so back it up past closefact to maxblocks
   const int *flag = (int *)((char *)blocks - sizeof(double) - sizeof(int));
   *which = flag[0]*NSEEL_RAM_ITEMSPERBLOCK;
   return which;
 }
 
 
+EEL_F NSEEL_CGEN_CALL __NSEEL_RAM_MemInsertShuffle(EEL_F **blocks,EEL_F *buf, EEL_F *lenptr, EEL_F *value)
+{
+  int src_offs = (int)*buf;
+  int len = (int)*lenptr;
+  int copy_len;
 
+  EEL_F ret = *value;
 
+  unsigned int sbidx = (unsigned int)src_offs / NSEEL_RAM_ITEMSPERBLOCK;
+
+  if (len < 1 || src_offs < 0) return 0.0;
+
+  src_offs = src_offs&(NSEEL_RAM_ITEMSPERBLOCK-1);
+  copy_len = wdl_min(len,NSEEL_RAM_ITEMSPERBLOCK - src_offs);
+
+  for (;;)
+  {
+    EEL_F *srcptr;
+    if (sbidx >= NSEEL_RAM_BLOCKS) break;
+
+    srcptr = blocks[sbidx];
+
+    if (WDL_unlikely(!srcptr))
+    {
+      srcptr = __NSEEL_RAMAlloc(blocks,sbidx * NSEEL_RAM_ITEMSPERBLOCK);
+      if (srcptr==&nseel_ramalloc_onfail) break;
+    }
+
+    len-=copy_len;
+    srcptr += src_offs;
+    while (copy_len-- > 0)
+    {
+      EEL_F v = *srcptr;
+      *srcptr++ = ret;
+      ret = v;
+    }
+    if (!len) break;
+
+    sbidx++;
+    src_offs=0;
+    copy_len = wdl_min(len,NSEEL_RAM_ITEMSPERBLOCK);
+  }
+  return ret;
+}
+
+EEL_F NSEEL_CGEN_CALL __NSEEL_RAM_MemSumProducts(EEL_F **blocks,EEL_F *dest, EEL_F *src, EEL_F *lenptr)
+{
+  int src_offs = (int)*src;
+  int len = (int)*lenptr;
+
+  EEL_F sum = 0.0;
+
+  if (len < 1 || src_offs < 0) return 0.0;
+
+  if (*dest < 0.0)
+  {
+    int copy_len;
+    unsigned int sbidx = (unsigned int)src_offs / NSEEL_RAM_ITEMSPERBLOCK;
+    src_offs = src_offs&(NSEEL_RAM_ITEMSPERBLOCK-1);
+    copy_len = wdl_min(len,NSEEL_RAM_ITEMSPERBLOCK - src_offs);
+    for (;;)
+    {
+      const EEL_F *srcptr;
+      if (sbidx >= NSEEL_RAM_BLOCKS) break;
+
+      srcptr = blocks[sbidx];
+
+      if (WDL_likely(srcptr))
+      {
+        int i;
+        srcptr += src_offs;
+        if (*dest == -1.0)
+          for (i = 0; i < copy_len; i ++) sum += srcptr[i] * srcptr[i];
+        else if (*dest == -2.0)
+          for (i = 0; i < copy_len; i ++) sum += fabs(srcptr[i]);
+        else
+          for (i = 0; i < copy_len; i ++) sum += srcptr[i];
+      }
+      len-=copy_len;
+      if (!len) break;
+
+      sbidx++;
+      src_offs=0;
+      copy_len = wdl_min(len,NSEEL_RAM_ITEMSPERBLOCK);
+    }
+  }
+  else
+  {
+    unsigned int dest_offs = (unsigned int) (int)*dest;
+    for (;;)
+    {
+      unsigned int sbidx = (unsigned int)src_offs / NSEEL_RAM_ITEMSPERBLOCK;
+      const int sbo = (src_offs&(NSEEL_RAM_ITEMSPERBLOCK-1));
+      unsigned int dbidx = dest_offs / NSEEL_RAM_ITEMSPERBLOCK;
+      const int dbo = (dest_offs&(NSEEL_RAM_ITEMSPERBLOCK-1));
+
+      const int copy_len = wdl_min(len,NSEEL_RAM_ITEMSPERBLOCK - wdl_max(dbo,sbo));
+
+      const EEL_F *srcptr, *destptr;
+
+      if (sbidx >= NSEEL_RAM_BLOCKS || dbidx >= NSEEL_RAM_BLOCKS) break;
+      srcptr = blocks[sbidx];
+      destptr = blocks[dbidx];
+      if (WDL_likely(srcptr && destptr))
+      {
+        int i;
+        srcptr += sbo;
+        destptr += dbo;
+        for (i = 0; i < copy_len; i ++) sum += destptr[i] * srcptr[i];
+      }
+      len-=copy_len;
+      if (!len) break;
+
+      src_offs += copy_len;
+      dest_offs += copy_len;
+    }
+  }
+  return sum;
+}
 
 
 EEL_F * NSEEL_CGEN_CALL __NSEEL_RAM_MemCpy(EEL_F **blocks,EEL_F *dest, EEL_F *src, EEL_F *lenptr)
@@ -396,19 +513,19 @@ void NSEEL_VM_freeRAM(NSEEL_VMCTX ctx)
   {
     int x;
     compileContext *c=(compileContext*)ctx;
-    EEL_F **blocks = c->ram_state.blocks;
+    EEL_F **blocks = c->ram_state->blocks;
     for (x = 0; x < NSEEL_RAM_BLOCKS; x ++)
     {
-	    if (blocks[x])
-	    {
-		    if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
-			    NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
-		    else NSEEL_RAM_memused_errors++;
+      if (blocks[x])
+      {
+        if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
+          NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
+        else NSEEL_RAM_memused_errors++;
         free(blocks[x]);
         blocks[x]=0;
-	    }
+      }
     }
-    c->ram_state.needfree=0; // no need to free anymore
+    c->ram_state->needfree=0; // no need to free anymore
   }
 }
 
@@ -418,14 +535,14 @@ void NSEEL_VM_FreeGRAM(void **ufd)
   {
     EEL_F **blocks = (EEL_F **)ufd[0];
     int x;
-    for (x = 0; x < NSEEL_RAM_BLOCKS; x ++)
+    for (x = 0; x < NSEEL_RAM_BLOCKS_GMEM_NAMED; x ++)
     {
-	    if (blocks[x])
-	    {
-		    if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
-			    NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
-		    else NSEEL_RAM_memused_errors++;
-	    }
+      if (blocks[x])
+      {
+        if (NSEEL_RAM_memused >= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK) 
+          NSEEL_RAM_memused -= sizeof(EEL_F) * NSEEL_RAM_ITEMSPERBLOCK;
+        else NSEEL_RAM_memused_errors++;
+      }
       free(blocks[x]);
       blocks[x]=0;
     }
@@ -436,7 +553,7 @@ void NSEEL_VM_FreeGRAM(void **ufd)
 
 EEL_F *NSEEL_VM_getramptr(NSEEL_VMCTX ctx, unsigned int offs, int *validCount)
 {
-  EEL_F *d=__NSEEL_RAMAlloc(ctx ? ((compileContext*)ctx)->ram_state.blocks : 0,offs);
+  EEL_F *d=__NSEEL_RAMAlloc(ctx ? ((compileContext*)ctx)->ram_state->blocks : 0,offs);
   if (!d || d == &nseel_ramalloc_onfail) return NULL;
   if (validCount) *validCount = NSEEL_RAM_ITEMSPERBLOCK - (offs%NSEEL_RAM_ITEMSPERBLOCK);
 
@@ -450,7 +567,7 @@ EEL_F *NSEEL_VM_getramptr_noalloc(NSEEL_VMCTX ctx, unsigned int offs, int *valid
 
   if (!cc ||
       offs >= NSEEL_RAM_ITEMSPERBLOCK*NSEEL_RAM_BLOCKS ||
-      NULL == (d = cc->ram_state.blocks[offs/NSEEL_RAM_ITEMSPERBLOCK])
+      NULL == (d = cc->ram_state->blocks[offs/NSEEL_RAM_ITEMSPERBLOCK])
       ) 
   {
     if (validCount) *validCount = 0;

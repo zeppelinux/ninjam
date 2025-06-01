@@ -17,7 +17,7 @@ PKG_CONFIG = pkg-config
 
 COMPILER=GCC
 
-CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar
+CFLAGS = -pipe -fvisibility=hidden -fno-math-errno -fPIC -DPIC -Wall -Wshadow -Wno-unused-function -Wno-multichar -Wtype-limits -Wno-unused-value -fstrict-aliasing
 
 CFLAGS += -DSWELL_MAKING_DYLIB
 
@@ -43,20 +43,36 @@ else
   CFLAGS +=  -Wno-unused-result
 endif
 
-ifndef ALLOW_WARNINGS
+ifeq ($(COMPILER),GCC)
+  GCC_VER := $(shell $(CXX) --version|head -n 1| sed 's/.* \([0-9][0-9]*\)[.].*/\1/' )
+  GCC_GT_11 := $(shell [ "$(GCC_VER)" -gt 11 ] && echo true )
+  ifeq ($(GCC_GT_11),true)
+    # false positive in gcc 12/13
+    CFLAGS += -Wno-dangling-pointer
+  endif
+endif
+
+ifdef DISALLOW_WARNINGS
   CFLAGS += -Werror
 endif
 ifndef DEPRECATED_WARNINGS
   CFLAGS +=  -Wno-deprecated-declarations
 endif
 
-ifneq ($(filter arm%,$(ARCH)),)
-  CFLAGS += -fsigned-char -marm
-endif
-ifeq ($(ARCH),aarch64)
+ifeq ($(ARCH),arm64)
   CFLAGS += -fsigned-char
+else
+  ifneq ($(filter arm%,$(ARCH)),)
+    CFLAGS += -fsigned-char -marm
+  endif
+  ifeq ($(ARCH),aarch64)
+    CFLAGS += -fsigned-char
+  endif
 endif
 
+ifeq ($(COMPILER),CLANG)
+  CFLAGS += -Wbitwise-instead-of-logical
+endif
 
 ifdef DEBUG
 CFLAGS += -O0 -g -D_DEBUG
@@ -135,6 +151,10 @@ ifndef NOGDK
       LINKEXTRA += -lfontconfig
     endif
   endif
+  LINKEXTRA += -lGL
+  ifdef PRELOAD_GDK
+    CFLAGS += -Wl,-z,lazy
+  endif
 endif
 
 CXXFLAGS = $(CFLAGS)
@@ -169,4 +189,4 @@ libSwell.colortheme: swell-gdi-generic.cpp $(SWELL_HEADERS)
 	./make-theme > libSwell.colortheme
 
 clean: 
-	-rm $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme
+	-rm -f -- $(OBJS) libSwell$(DLL_EXT) make-theme libSwell.colortheme

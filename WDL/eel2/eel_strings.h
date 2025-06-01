@@ -121,9 +121,7 @@
 class eel_string_context_state
 {
   public:
-    static int cmpistr(const char **a, const char **b) { return stricmp(*a,*b); }
-
-    eel_string_context_state()  : m_named_strings_names(false), m_varname_cache(cmpistr)
+    eel_string_context_state()  : m_named_strings_names(false), m_varname_cache(false, NULL, false)
     {
       m_vm=0;
       memset(m_user_strings,0,sizeof(m_user_strings));
@@ -234,7 +232,7 @@ class eel_string_context_state
     WDL_StringKeyedArray<int> m_named_strings_names; // #xyz->index
 
     EEL_STRING_STORAGECLASS *m_user_strings[EEL_STRING_MAX_USER_STRINGS]; // indices 0-1023 (etc)
-    WDL_AssocArray<const char *, EEL_F_PTR> m_varname_cache; // cached pointers when using %{xyz}s, %{#xyz}s bypasses
+    WDL_StringKeyedArray<EEL_F_PTR> m_varname_cache; // cached pointers when using %{xyz}s, %{#xyz}s bypasses
 
     NSEEL_VMCTX m_vm;
 #ifdef EEL_STRING_WANT_MUTEX
@@ -246,6 +244,9 @@ class eel_string_context_state
       if (!opaque) return -1.0;
       eel_string_context_state *_this = EEL_STRING_GET_CONTEXT_POINTER(opaque);
       if (!_this) return -1.0;
+#ifdef EEL_STRING_NAMEDSTRINGCALLBACK_HOOK
+      EEL_STRING_NAMEDSTRINGCALLBACK_HOOK
+#endif
 
       EEL_STRING_MUTEXLOCK_SCOPE
       if (!name || !name[0])
@@ -292,7 +293,7 @@ class eel_string_context_state
      for (x=0;x<sz;x++)
      {
        EEL_STRING_STORAGECLASS *s = m_literal_strings.Get(x);
-       if (ns->GetLength() == l && !strcmp(s->Get(),ns->Get())) break;
+       if (s->GetLength() == l && !memcmp(s->Get(),ns->Get(),l+1)) break;
      }
      if (x<sz) delete ns;
      else m_literal_strings.Add(ns);
@@ -490,20 +491,7 @@ int eel_format_strings(void *opaque, const char *fmt, const char *fmt_end, char 
         }
         else
         {
-#if !defined(_WIN32) && !defined(__arm__) && !defined(__aarch64__)
-          // x86 and x86_64 set rounding to truncate (ugh)
-          // apparently on Windows it doesn't matter for sprintf(), though.
-          // this is safe to call on other platforms, too, just perhaps wasteful
-          int fpstate[2];
-          eel_enterfp(fpstate);
-          eel_setfp_round();
-#endif
-
           snprintf(op,64,fs,v);
-
-#if !defined(_WIN32) && !defined(__arm__) && !defined(__aarch64__)
-          eel_leavefp(fpstate);
-#endif
         }
       }
 
@@ -779,7 +767,7 @@ static int eel_string_match(void *opaque, const char *fmt, const char *msg, int 
         }
       break;
       default:
-        if (ignorecase ? (toupper(*fmt) != toupper(*msg)) : (*fmt!= *msg)) return 0;
+        if (ignorecase ? (toupper_safe(*fmt) != toupper_safe(*msg)) : (*fmt!= *msg)) return 0;
         fmt++;
         msg++;
       break;
@@ -1008,8 +996,8 @@ static EEL_F _eel_strcmp_int(const char *a, int a_len, const char *b, int b_len,
     char bv = b[pos];
     if (ignorecase) 
     {
-      av=toupper(av);
-      bv=toupper(bv);
+      av=toupper_safe(av);
+      bv=toupper_safe(bv);
     }
     if (bv > av) return -1.0;
     if (av > bv) return 1.0;
@@ -1125,11 +1113,11 @@ static int eel_getchar_flag(int type)
   int ret=0;
 #endif
 
-  if (toupper((type>>8)&0xff) == 'U') ret|=EEL_GETCHAR_FLAG_UNSIGNED;
-  else if (type>255 && toupper(type&0xff) == 'U') { ret|=EEL_GETCHAR_FLAG_UNSIGNED; type>>=8; }
+  if (toupper_safe((type>>8)&0xff) == 'U') ret|=EEL_GETCHAR_FLAG_UNSIGNED;
+  else if (type>255 && toupper_safe(type&0xff) == 'U') { ret|=EEL_GETCHAR_FLAG_UNSIGNED; type>>=8; }
   type&=0xff;
 
-  if (isupper(type)) ret^=EEL_GETCHAR_FLAG_ENDIANSWAP;
+  if (isupper_safe(type)) ret^=EEL_GETCHAR_FLAG_ENDIANSWAP;
   else type += 'A'-'a';
 
   switch (type)

@@ -3,10 +3,10 @@
 	ProjectType="Intel C++ Project"
 	Version="10.1"
 	Name="reaninjam"
-	ProjectGUID="{4CB3EE43-DFED-4754-9686-80F0BCF94F19}"
+	ProjectGUID="{3B795EF0-9717-427A-93CF-AEB35DF24892}"
 	RootNamespace="reaninjam"
 	VCNestedProjectGUID="{49F2387D-990E-4B1B-B845-F56E4D77CEE1}"
-	VCNestedProjectCRC32="918034995"
+	VCNestedProjectCRC32="4043595104"
 	VCNestedProjectFileName="reaninjam-x64.vcproj">
 	<Platforms>
 		<Platform 
@@ -18,11 +18,11 @@
 	</ToolFiles>
 	<Configurations>
 		<Configuration 
-			Name="Release64|Win32">
+			Name="Release|Win32">
 			<Tool 
 				Name="GeneralTool"
-				OutputDirectory=".\Release64"
-				IntermediateDirectory=".\Release64"
+				OutputDirectory="../../Release32/objs/$(ProjectName)"
+				IntermediateDirectory="../../Release32/objs/$(ProjectName)"
 				ConfigurationType="2"
 				InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops"
 				UseOfMFC="0"
@@ -42,7 +42,7 @@
 				MkTypLibCompatible="true"
 				SuppressStartupBanner="true"
 				TargetEnvironment="1"
-				TypeLibraryName=".\Release64/reaninjam-x64.tlb"
+				TypeLibraryName="../../Release32/objs/$(ProjectName)/$(ProjectName).tlb"
 				HeaderFileName=""/>
 			<Tool 
 				Name="CppCmplrTool"
@@ -52,13 +52,13 @@
 				AdditionalIncludeDirectories="../../../sdks/libvorbis-1.3.6/include,../../../sdks/libogg-1.3.3/include"
 				PreprocessorDefinitions="WIN32;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;NDEBUG;_WINDOWS;_USRDLL;REAGATE_EXPORTS;REANINJAM;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE"
 				StringPooling="true"
-				RuntimeLibrary="2"
+				RuntimeLibrary="0"
+				BufferSecurityCheck="false"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\Release64/reaninjam-x64.pch"
-				AssemblerListingLocation=".\Release64/"
-				ObjectFile=".\Release64/"
-				ProgramDataBaseFileName=".\Release64/"
-				SuppressStartupBanner="true"/>
+				SuppressStartupBanner="true"
+				Detect64BitPortabilityProblems="false"
+				DebugInformationFormat="3"
+				DisableSpecificWarnings="4312;4311"/>
 			<Tool 
 				Name="VCManagedResourceCompilerTool"/>
 			<Tool 
@@ -70,12 +70,12 @@
 			<Tool 
 				Name="LinkerTool"
 				AdditionalDependencies="odbc32.lib odbccp32.lib winmm.lib wsock32.lib comctl32.lib"
-				OutputFile="../../Release64/plugins/fx/reaninjam.dll"
+				OutputFile="../../Release32/plugins/fx/reaninjam.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
-				ProgramDatabaseFile=".\Release64/reaninjam.pdb"
+				GenerateDebugInformation="true"
 				OptimizeForWindows98="1"
-				ImportLibrary=".\Release64/reaninjam.lib"
+				ImportLibrary="../../Release32/objs/$(ProjectName)/$(ProjectName).lib"
 				TargetMachine="1"/>
 			<Tool 
 				Name="VCALinkTool"/>
@@ -86,7 +86,7 @@
 			<Tool 
 				Name="BscMakeTool"
 				SuppressStartupBanner="true"
-				OutputFile=".\Release64/reaninjam-x64.bsc"/>
+				OutputFile="../../Release32/objs/$(ProjectName)/$(ProjectName).bsc"/>
 			<Tool 
 				Name="VCFxCopTool"/>
 			<Tool 
@@ -97,11 +97,11 @@
 				Name="PostBuildEventTool"/>
 		</Configuration>
 		<Configuration 
-			Name="Release64|x64">
+			Name="Release|x64">
 			<Tool 
 				Name="GeneralTool"
-				OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-				IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+				OutputDirectory="../../Release64/objs/$(ProjectName)"
+				IntermediateDirectory="../../Release64/objs/$(ProjectName)"
 				ConfigurationType="2"
 				InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops"
 				UseOfMFC="0"
@@ -121,7 +121,7 @@
 				MkTypLibCompatible="true"
 				SuppressStartupBanner="true"
 				TargetEnvironment="3"
-				TypeLibraryName=".\Release64/reaninjam-x64.tlb"
+				TypeLibraryName="../../Release64/objs/$(ProjectName)/$(ProjectName).tlb"
 				HeaderFileName=""/>
 			<Tool 
 				Name="CppCmplrTool"
@@ -132,10 +132,6 @@
 				PreprocessorDefinitions="WIN32;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;NDEBUG;_WINDOWS;_USRDLL;REAGATE_EXPORTS;REANINJAM;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE"
 				StringPooling="true"
 				EnableFunctionLevelLinking="true"
-				PrecompiledHeaderFile=".\Release64/reaninjam-x64.pch"
-				AssemblerListingLocation=".\Release64/"
-				ObjectFile=".\Release64/"
-				ProgramDataBaseFileName=".\Release64/"
 				SuppressStartupBanner="true"
 				DebugInformationFormat="3"/>
 			<Tool 
@@ -153,13 +149,10 @@
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile=".\Release64/reaninjam.pdb"
-				GenerateMapFile="true"
-				MapFileName=".\Release64/reasomething.map"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				OptimizeForWindows98="1"
-				ImportLibrary=".\Release64/reaninjam.lib"
+				ImportLibrary="../../Release64/objs/$(ProjectName)/$(ProjectName).lib"
 				TargetMachine="17"/>
 			<Tool 
 				Name="VCALinkTool"/>
@@ -170,7 +163,7 @@
 			<Tool 
 				Name="BscMakeTool"
 				SuppressStartupBanner="true"
-				OutputFile=".\Release64/reaninjam-x64.bsc"/>
+				OutputFile="../../Release64/objs/$(ProjectName)/$(ProjectName).bsc"/>
 			<Tool 
 				Name="VCFxCopTool"/>
 			<Tool 
@@ -181,11 +174,11 @@
 				Name="PostBuildEventTool"/>
 		</Configuration>
 		<Configuration 
-			Name="Debug64|Win32">
+			Name="Debug|Win32">
 			<Tool 
 				Name="GeneralTool"
-				OutputDirectory=".\Debug64"
-				IntermediateDirectory=".\Debug64"
+				OutputDirectory="../../Debug32/objs/$(ProjectName)"
+				IntermediateDirectory="../../Debug32/objs/$(ProjectName)"
 				ConfigurationType="2"
 				InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops"
 				UseOfMFC="0"
@@ -205,7 +198,7 @@
 				MkTypLibCompatible="true"
 				SuppressStartupBanner="true"
 				TargetEnvironment="1"
-				TypeLibraryName=".\Debug64/reaninjam-x64.tlb"
+				TypeLibraryName="../../Debug32/objs/$(ProjectName)/$(ProjectName).tlb"
 				HeaderFileName=""/>
 			<Tool 
 				Name="CppCmplrTool"
@@ -216,12 +209,10 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\Debug64/reaninjam-x64.pch"
-				AssemblerListingLocation=".\Debug64/"
-				ObjectFile=".\Debug64/"
-				ProgramDataBaseFileName=".\Debug64/"
 				SuppressStartupBanner="true"
-				DebugInformationFormat="4"/>
+				Detect64BitPortabilityProblems="false"
+				DebugInformationFormat="4"
+				DisableSpecificWarnings="4312;4311"/>
 			<Tool 
 				Name="VCManagedResourceCompilerTool"/>
 			<Tool 
@@ -233,12 +224,11 @@
 			<Tool 
 				Name="LinkerTool"
 				AdditionalDependencies="odbc32.lib odbccp32.lib winmm.lib wsock32.lib comctl32.lib"
-				OutputFile="../../Debug64/plugins/fx/reaninjam.dll"
+				OutputFile="../../Debug32/plugins/fx/reaninjam.dll"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile=".\Debug64/reaninjam.pdb"
-				ImportLibrary=".\Debug64/reaninjam.lib"
+				ImportLibrary="../../Debug32/objs/$(ProjectName)/$(ProjectName).lib"
 				TargetMachine="1"/>
 			<Tool 
 				Name="VCALinkTool"/>
@@ -249,7 +239,7 @@
 			<Tool 
 				Name="BscMakeTool"
 				SuppressStartupBanner="true"
-				OutputFile=".\Debug64/reaninjam-x64.bsc"/>
+				OutputFile="../../Debug32/objs/$(ProjectName)/$(ProjectName).bsc"/>
 			<Tool 
 				Name="VCFxCopTool"/>
 			<Tool 
@@ -260,11 +250,11 @@
 				Name="PostBuildEventTool"/>
 		</Configuration>
 		<Configuration 
-			Name="Debug64|x64">
+			Name="Debug|x64">
 			<Tool 
 				Name="GeneralTool"
-				OutputDirectory="$(PlatformName)\$(ConfigurationName)"
-				IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+				OutputDirectory="../../Debug64/objs/$(ProjectName)"
+				IntermediateDirectory="../../Debug64/objs/$(ProjectName)"
 				ConfigurationType="2"
 				InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC60.vsprops"
 				UseOfMFC="0"
@@ -284,7 +274,7 @@
 				MkTypLibCompatible="true"
 				SuppressStartupBanner="true"
 				TargetEnvironment="3"
-				TypeLibraryName=".\Debug64/reaninjam-x64.tlb"
+				TypeLibraryName="../../Debug64/objs/$(ProjectName)/$(ProjectName).tlb"
 				HeaderFileName=""/>
 			<Tool 
 				Name="CppCmplrTool"
@@ -295,11 +285,8 @@
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
-				PrecompiledHeaderFile=".\Debug64/reaninjam-x64.pch"
-				AssemblerListingLocation=".\Debug64/"
-				ObjectFile=".\Debug64/"
-				ProgramDataBaseFileName=".\Debug64/"
 				SuppressStartupBanner="true"
+				Detect64BitPortabilityProblems="false"
 				DebugInformationFormat="3"/>
 			<Tool 
 				Name="VCManagedResourceCompilerTool"/>
@@ -316,8 +303,7 @@
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
 				GenerateDebugInformation="true"
-				ProgramDatabaseFile=".\Debug64/reaninjam.pdb"
-				ImportLibrary=".\Debug64/reaninjam.lib"
+				ImportLibrary="../../Debug64/objs/$(ProjectName)/$(ProjectName).lib"
 				TargetMachine="17"/>
 			<Tool 
 				Name="VCALinkTool"/>
@@ -328,7 +314,7 @@
 			<Tool 
 				Name="BscMakeTool"
 				SuppressStartupBanner="true"
-				OutputFile=".\Debug64/reaninjam-x64.bsc"/>
+				OutputFile="../../Debug64/objs/$(ProjectName)/$(ProjectName).bsc"/>
 			<Tool 
 				Name="VCFxCopTool"/>
 			<Tool 
@@ -348,25 +334,25 @@
 			<File 
 				RelativePath="res.rc">
 				<FileConfiguration 
-					Name="Release64|Win32">
+					Name="Release|Win32">
 					<Tool 
 						Name="ResCmplrTool"
 						PreprocessorDefinitions=""/>
 				</FileConfiguration>
 				<FileConfiguration 
-					Name="Release64|x64">
+					Name="Release|x64">
 					<Tool 
 						Name="ResCmplrTool"
 						PreprocessorDefinitions=""/>
 				</FileConfiguration>
 				<FileConfiguration 
-					Name="Debug64|Win32">
+					Name="Debug|Win32">
 					<Tool 
 						Name="ResCmplrTool"
 						PreprocessorDefinitions=""/>
 				</FileConfiguration>
 				<FileConfiguration 
-					Name="Debug64|x64">
+					Name="Debug|x64">
 					<Tool 
 						Name="ResCmplrTool"
 						PreprocessorDefinitions=""/>
@@ -375,28 +361,28 @@
 			<File 
 				RelativePath="vstframe.cpp">
 				<FileConfiguration 
-					Name="Release64|Win32">
+					Name="Release|Win32">
 					<Tool 
 						Name="CppCmplrTool"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions=""/>
 				</FileConfiguration>
 				<FileConfiguration 
-					Name="Release64|x64">
+					Name="Release|x64">
 					<Tool 
 						Name="CppCmplrTool"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions=""/>
 				</FileConfiguration>
 				<FileConfiguration 
-					Name="Debug64|Win32">
+					Name="Debug|Win32">
 					<Tool 
 						Name="CppCmplrTool"
 						AdditionalIncludeDirectories=""
 						PreprocessorDefinitions=""/>
 				</FileConfiguration>
 				<FileConfiguration 
-					Name="Debug64|x64">
+					Name="Debug|x64">
 					<Tool 
 						Name="CppCmplrTool"
 						AdditionalIncludeDirectories=""
@@ -408,28 +394,28 @@
 				<File 
 					RelativePath="chat.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -439,28 +425,28 @@
 				<File 
 					RelativePath="license.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -470,28 +456,28 @@
 				<File 
 					RelativePath="locchn.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -501,28 +487,28 @@
 				<File 
 					RelativePath="remchn.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -532,28 +518,28 @@
 				<File 
 					RelativePath="winclient.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -568,28 +554,28 @@
 					<File 
 						RelativePath="..\..\..\ninjam\mpb.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -599,28 +585,28 @@
 					<File 
 						RelativePath="..\..\..\ninjam\netmsg.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -630,28 +616,28 @@
 					<File 
 						RelativePath="..\..\..\ninjam\njclient.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions="USE_ICC"/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions="USE_ICC"/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -664,28 +650,28 @@
 					<File 
 						RelativePath="..\..\..\WDL\jnetlib\asyncdns.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -698,28 +684,28 @@
 					<File 
 						RelativePath="..\..\..\WDL\jnetlib\connection.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -732,28 +718,28 @@
 					<File 
 						RelativePath="..\..\..\WDL\jnetlib\httpget.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -769,28 +755,28 @@
 					<File 
 						RelativePath="..\..\..\WDL\jnetlib\util.cpp">
 						<FileConfiguration 
-							Name="Release64|Win32">
+							Name="Release|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Release64|x64">
+							Name="Release|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|Win32">
+							Name="Debug|Win32">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
 								PreprocessorDefinitions=""/>
 						</FileConfiguration>
 						<FileConfiguration 
-							Name="Debug64|x64">
+							Name="Debug|x64">
 							<Tool 
 								Name="CppCmplrTool"
 								AdditionalIncludeDirectories=""
@@ -807,28 +793,28 @@
 				<File 
 					RelativePath="..\..\..\WDL\rng.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -841,28 +827,28 @@
 				<File 
 					RelativePath="..\..\..\WDL\sha.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
@@ -875,28 +861,28 @@
 				<File 
 					RelativePath="..\..\..\WDL\wingui\wndsize.cpp">
 					<FileConfiguration 
-						Name="Release64|Win32">
+						Name="Release|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Release64|x64">
+						Name="Release|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|Win32">
+						Name="Debug|Win32">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""
 							PreprocessorDefinitions=""/>
 					</FileConfiguration>
 					<FileConfiguration 
-						Name="Debug64|x64">
+						Name="Debug|x64">
 						<Tool 
 							Name="CppCmplrTool"
 							AdditionalIncludeDirectories=""

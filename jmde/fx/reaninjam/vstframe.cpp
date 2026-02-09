@@ -12,9 +12,12 @@
 #include "../../../WDL/queue.h"
 #include "../../../WDL/wdlcstring.h"
 
-#include "../../reaper_plugin.h"
+#define WANT_LOCALIZE_IMPORT_INCLUDE
+#include "winclient.h"
 #define WDL_WIN32_HIDPI_IMPL
 #include "../../../WDL/win32_hidpi.h" // for mmon SetWindowPos() tweaks
+#define REAPER_COMMONFUNC_DECL
+#include "../cockos_vst.h"
 
 #include "resource.h"
 
@@ -42,8 +45,6 @@ static HWND customControlCreator(HWND parent, const char *cname, int idx, const 
 
 HANDLE * (*GetIconThemePointer)(const char *name);
 HWND (*GetMainHwnd)();
-double (*DB2SLIDER)(double);
-double (*SLIDER2DB)(double);
 void *(*CreateVorbisEncoder)(int srate, int nch, int serno, float qv, int cbr, int minbr, int maxbr);
 void *(*CreateVorbisDecoder)();
 void (*PluginWantsAlwaysRunFx)(int amt);
@@ -63,17 +64,14 @@ void (*Main_OnCommandEx)(int command, int flag, void *proj);
 
 void (*GetProjectPath)(char *buf, int bufsz);
 const char *(*get_ini_file)();
-BOOL	(WINAPI *InitializeCoolSB)(HWND hwnd);
+BOOL  (WINAPI *InitializeCoolSB)(HWND hwnd);
 HRESULT (WINAPI *UninitializeCoolSB)(HWND hwnd);
-BOOL (WINAPI *CoolSB_SetVegasStyle)(HWND hwnd, BOOL active);
-int	 (WINAPI *CoolSB_SetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi, BOOL fRedraw);
+int   (WINAPI *CoolSB_SetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi, BOOL fRedraw);
 BOOL (WINAPI *CoolSB_GetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi);
 int (WINAPI *CoolSB_SetScrollPos)(HWND hwnd, int nBar, int nPos, BOOL fRedraw);
 int (WINAPI *CoolSB_SetScrollRange)(HWND hwnd, int nBar, int nMinPos, int nMaxPos, BOOL fRedraw);
 BOOL (WINAPI *CoolSB_SetMinThumbSize)(HWND hwnd, UINT wBar, UINT size);
 int (*plugin_register)(const char *name, void *infostruct);
-
-extern int g_config_audio_outputs; // &1 = local channels use 3/4, &2=metronome uses 5
 
 int reaninjamAccelProc(MSG *msg, accelerator_register_t *ctx)
 {
@@ -91,7 +89,7 @@ int reaninjamAccelProc(MSG *msg, accelerator_register_t *ctx)
                         ((GetAsyncKeyState(VK_SHIFT)&0x8000) ? FSHIFT : 0) |
                         ((GetAsyncKeyState(VK_CONTROL)&0x8000) ? FCONTROL : 0);
       const bool isDown = msg->message == WM_KEYDOWN || msg->message == WM_SYSKEYDOWN;
-      if (msg->wParam >= VK_F1 && msg->wParam <= VK_F10)
+      if (IS_MSG_VIRTKEY(msg) && msg->wParam >= VK_F1 && msg->wParam <= VK_F10)
       {
         int idx = msg->wParam - VK_F1;
         switch (flags)
@@ -174,12 +172,12 @@ int reaninjamAccelProc(MSG *msg, accelerator_register_t *ctx)
     HWND e = GetDlgItem(g_hwnd,IDC_CHATENT);
     if (e)
     {
-      if (msg->hwnd == e || IsChild(e,msg->hwnd))  
+      if (msg->hwnd == e || IsChild(e,msg->hwnd))
       {
 #ifdef _WIN32
-        if (msg->message == WM_CHAR && msg->wParam == VK_RETURN) 
+        if (msg->message == WM_CHAR && msg->wParam == VK_RETURN)
 #else
-        if (msg->message == WM_KEYDOWN && msg->wParam == VK_RETURN) 
+        if (msg->message == WM_KEYDOWN && msg->wParam == VK_RETURN)
 #endif
         {
           SendMessage(g_hwnd,WM_COMMAND,IDC_CHATOK,0);
@@ -254,8 +252,8 @@ public:
     m_effect.setParameter = staticSetParameter;
     m_effect.numPrograms = 1;
     m_effect.numParams = 0;
-    m_effect.numInputs=8;
-    m_effect.numOutputs=2;
+    m_effect.numInputs = 2; // these will get overridden on config load
+    m_effect.numOutputs = 2;
 
     m_effect.flags=effFlagsCanReplacing|effFlagsHasEditor;
     m_effect.processReplacing=staticProcessReplacing;//do nothing
@@ -273,7 +271,7 @@ public:
   {
     g_vst_object = NULL;
     if (m_hwndcfg) DestroyWindow(m_hwndcfg);
-  }  
+  }
 
 
   WDL_DLGRET CfgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -284,6 +282,7 @@ public:
         m_hwndcfg=hwndDlg;
 
         ShowWindow(hwndDlg,SW_SHOWNA);
+        WDL_FALLTHROUGH;
       case WM_USER+6606:
 
       return 0;
@@ -293,10 +292,10 @@ public:
         if (LOWORD(wParam)==IDC_BUTTON1)
         {
           extern HWND g_hwnd;
-          if (g_hwnd) 
+          if (g_hwnd)
           {
             ShowWindow(g_hwnd,SW_SHOWNORMAL);
-            SetForegroundWindow(g_hwnd); 
+            SetForegroundWindow(g_hwnd);
           }
         }
       return 0;
@@ -312,7 +311,7 @@ public:
     if (uMsg == WM_INITDIALOG) SetWindowLongPtr(hwndDlg,GWLP_USERDATA,lParam);
     VSTEffectClass *_this = (VSTEffectClass *)GetWindowLongPtr(hwndDlg,GWLP_USERDATA);
     return _this->CfgProc(hwndDlg,uMsg,wParam,lParam);
-  } 
+  }
 
   static VstIntPtr VSTCALLBACK staticDispatcher(AEffect *effect, VstInt32 opCode, VstInt32 index, VstIntPtr value, void *ptr, float opt)
   {
@@ -325,7 +324,7 @@ public:
       return 0;
       case effStopProcess:
       case effMainsChanged:
-        if (_this && !value) 
+        if (_this && !value)
         {
         }
       return 0;
@@ -349,14 +348,14 @@ public:
             {
               static accelerator_register_t accel = { reaninjamAccelProc, TRUE};
               plugin_register("accelerator",&accel);
-            }            
+            }
           }
           InitializeInstance();
         }
 
       return 0;
       case effSetSampleRate:
-        if (_this) 
+        if (_this)
         {
           _this->m_samplerate=opt;
         }
@@ -368,30 +367,29 @@ public:
           if (index<0) return 0;
 
           VstPinProperties *pp=(VstPinProperties*)ptr;
+          pp->flags=0;
+          pp->arrangementType=kSpeakerArrStereo;
           if (opCode == effGetInputProperties)
           {
             if (index >= _this->m_effect.numInputs) return 0;
-            sprintf(pp->label,"Input %d",index+1);
+            snprintf(pp->label,sizeof(pp->label),__LOCALIZE_VERFMT("Input %d","reaplugs_io"),index+1);
+            if ((index&1)==0)
+            {
+              if (index < _this->m_effect.numInputs-1) pp->flags|=kVstPinIsStereo;
+              else pp->arrangementType=kSpeakerArrMono;
+            }
           }
           else
           {
             if (index >= _this->m_effect.numOutputs) return 0;
-            sprintf(pp->label,"(not connected)");
-            switch (index)
+            snprintf(pp->label,sizeof(pp->label),__LOCALIZE_VERFMT("Output %d","reaplugs_io"),index+1);
+            if ((index&1)==0)
             {
-              case 0: case 1: sprintf(pp->label,"Main %s",index&1?"R":"L"); break;
-              case 2: case 3: if (g_config_audio_outputs&1) sprintf(pp->label,"Local %s",index&1?"R":"L"); break;
-              case 4: if (g_config_audio_outputs&2) sprintf(pp->label,"Metronome"); break;
+              if (index < _this->m_effect.numOutputs-1) pp->flags|=kVstPinIsStereo;
+              else pp->arrangementType=kSpeakerArrMono;
             }
           }
-          pp->flags=0;
-          if (opCode == effGetOutputProperties && index == 4)
-            pp->arrangementType=kSpeakerArrMono;
-          else
-            pp->arrangementType=kSpeakerArrStereo;
 
-          if (index==0||index==2)
-            pp->flags|=kVstPinIsStereo;
           return 1;
         }
       return 0;
@@ -426,7 +424,7 @@ public:
       case effOpen:
       return 0;
       case effEditGetRect:
-        if (_this)// && _this->m_hwndcfg) 
+        if (_this)// && _this->m_hwndcfg)
         {
           RECT r;
           if (_this->m_hwndcfg) GetClientRect(_this->m_hwndcfg,&r);
@@ -447,8 +445,8 @@ public:
     return 0;
   }
   short cfgRect[4];
-  
-	static void VSTCALLBACK staticProcessReplacing(AEffect *effect, SAMPLETYPE **inputs, SAMPLETYPE **outputs, VstInt32 sampleframes)
+
+  static void VSTCALLBACK staticProcessReplacing(AEffect *effect, SAMPLETYPE **inputs, SAMPLETYPE **outputs, VstInt32 sampleframes)
   {
     VSTEffectClass *_this=(VSTEffectClass *)effect->object;
     if (_this)
@@ -491,8 +489,8 @@ public:
       _this->m_lastplaytrackpos=_this->m_lasttransportpos;
 
       audiostream_onsamples(inputs,effect->numInputs,outputs,effect->numOutputs,sampleframes,(int)(_this->m_samplerate+0.5),isPlaying,isSeek,_this->m_lastplaytrackpos);
-
-      effect->numOutputs = (g_config_audio_outputs&2) ? 5 : (g_config_audio_outputs&1) ? 4 : 2;
+      effect->numInputs = g_config_num_inputs;
+      effect->numOutputs = g_config_num_outputs;
     }
   }
 
@@ -538,58 +536,65 @@ __declspec(dllexport) AEffect *VSTPluginMain(audioMasterCallback hostcb)
   __attribute__ ((visibility ("default"))) AEffect *VSTPluginMain(audioMasterCallback hostcb)
 #endif
 {
+  if (!hostcb) return 0;
   if (g_vst_object) return 0;
 
   g_hostcb=hostcb;
 
-  if (hostcb)
+  static bool api_ok;
+  if (!api_ok)
   {
-    *((VstIntPtr *)&get_ini_file) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"get_ini_file",0.0);
-    *((VstIntPtr *)&plugin_register) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"plugin_register",0.0);   
-    *((VstIntPtr *)&GetProjectPath) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetProjectPath",0.0);
-    
-    *((VstIntPtr *)&InitializeCoolSB) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"InitializeCoolSB",0.0);
-    *((VstIntPtr *)&UninitializeCoolSB) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"UninitializeCoolSB",0.0);
-    *((VstIntPtr *)&CoolSB_SetVegasStyle) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"CoolSB_SetVegasStyle",0.0);
-    *((VstIntPtr *)&CoolSB_SetScrollInfo) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"CoolSB_SetScrollInfo",0.0);
-    *((VstIntPtr *)&CoolSB_GetScrollInfo) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"CoolSB_GetScrollInfo",0.0);
-    *((VstIntPtr *)&CoolSB_SetScrollPos) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"CoolSB_SetScrollPos",0.0);
-    *((VstIntPtr *)&CoolSB_SetScrollRange) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"CoolSB_SetScrollRange",0.0);
-    *((VstIntPtr *)&CoolSB_SetMinThumbSize) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"CoolSB_SetMinThumbSize",0.0);
-    
-    *(VstIntPtr *)&format_timestr_pos = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"format_timestr_pos",0.0);
-    *(VstIntPtr *)&DB2SLIDER=hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"DB2SLIDER",0.0);
-    *(VstIntPtr *)&SLIDER2DB=hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"SLIDER2DB",0.0);
-    *(VstIntPtr *)&GetMainHwnd=hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetMainHwnd",0.0);
-    *(VstIntPtr *)&GetIconThemePointer=hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetIconThemePointer",0.0);
-    *(VstIntPtr *)&PluginWantsAlwaysRunFx=hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"PluginWantsAlwaysRunFx",0.0);
-    *(VstIntPtr *)&GetWindowDPIScaling = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetWindowDPIScaling",0.0);
-    *(VstIntPtr *)&autoRepositionWindowOnMessage = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"autoRepositionWindowOnMessage",0.0);
-    *(VstIntPtr *)&GetPlayStateEx = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetPlayStateEx",0.0);
-    *(VstIntPtr *)&OnPlayButtonForTime = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"OnPlayButtonForTime",0.0);
-    *(VstIntPtr *)&SetEditCurPos2 = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"SetEditCurPos2",0.0);
-    *(VstIntPtr *)&SetCurrentBPM = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"SetCurrentBPM",0.0);
-    *(VstIntPtr *)&GetSet_LoopTimeRange2 = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetSet_LoopTimeRange2",0.0);
-    *(VstIntPtr *)&GetSetRepeatEx = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetSetRepeatEx",0.0);
-    *(VstIntPtr *)&GetCursorPositionEx = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"GetCursorPositionEx",0.0);
-    *(VstIntPtr *)&Main_OnCommandEx = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"Main_OnCommandEx",0.0);
+    IMPORT_REAPER_COMMON(hostcb);
+    import_vst_reaper_api((void **)&get_ini_file, "get_ini_file", hostcb);
+    import_vst_reaper_api((void **)&plugin_register, "plugin_register", hostcb);
+    import_vst_reaper_api((void **)&GetProjectPath, "GetProjectPath", hostcb);
+
+    import_vst_reaper_api((void **)&InitializeCoolSB, "InitializeCoolSB", hostcb);
+    import_vst_reaper_api((void **)&UninitializeCoolSB, "UninitializeCoolSB", hostcb);
+    import_vst_reaper_api((void **)&CoolSB_SetScrollInfo, "CoolSB_SetScrollInfo", hostcb);
+    import_vst_reaper_api((void **)&CoolSB_GetScrollInfo, "CoolSB_GetScrollInfo", hostcb);
+    import_vst_reaper_api((void **)&CoolSB_SetScrollPos, "CoolSB_SetScrollPos", hostcb);
+    import_vst_reaper_api((void **)&CoolSB_SetScrollRange, "CoolSB_SetScrollRange", hostcb);
+    import_vst_reaper_api((void **)&CoolSB_SetMinThumbSize, "CoolSB_SetMinThumbSize", hostcb);
+
+    import_vst_reaper_api((void **)&SetWindowAccessibilityString, "SetWindowAccessibilityString", hostcb);
+
+    import_vst_reaper_api((void **)&format_timestr_pos, "format_timestr_pos", hostcb);
+    import_vst_reaper_api((void **)&GetMainHwnd, "GetMainHwnd", hostcb);
+    import_vst_reaper_api((void **)&GetIconThemePointer, "GetIconThemePointer", hostcb);
+    import_vst_reaper_api((void **)&PluginWantsAlwaysRunFx, "PluginWantsAlwaysRunFx", hostcb);
+    import_vst_reaper_api((void **)&GetWindowDPIScaling, "GetWindowDPIScaling", hostcb);
+    import_vst_reaper_api((void **)&autoRepositionWindowOnMessage, "autoRepositionWindowOnMessage", hostcb);
+    import_vst_reaper_api((void **)&GetPlayStateEx, "GetPlayStateEx", hostcb);
+    import_vst_reaper_api((void **)&OnPlayButtonForTime, "OnPlayButtonForTime", hostcb);
+    import_vst_reaper_api((void **)&SetEditCurPos2, "SetEditCurPos2", hostcb);
+    import_vst_reaper_api((void **)&SetCurrentBPM, "SetCurrentBPM", hostcb);
+    import_vst_reaper_api((void **)&GetSet_LoopTimeRange2, "GetSet_LoopTimeRange2", hostcb);
+    import_vst_reaper_api((void **)&GetSetRepeatEx, "GetSetRepeatEx", hostcb);
+    import_vst_reaper_api((void **)&GetCursorPositionEx, "GetCursorPositionEx", hostcb);
+    import_vst_reaper_api((void **)&Main_OnCommandEx, "Main_OnCommandEx", hostcb);
 #ifdef _WIN32
-    *(VstIntPtr *)&handleCheckboxCustomDraw=hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void*)"handleCheckboxCustomDraw",0.0);
+    import_vst_reaper_api((void **)&handleCheckboxCustomDraw, "handleCheckboxCustomDraw", hostcb);
 #endif
-    
+
+    IMPORT_LOCALIZE_VST(hostcb);
+    if (!GetMainHwnd || !GetIconThemePointer) return 0;
   }
-  if (!GetMainHwnd || !GetIconThemePointer||!DB2SLIDER||!SLIDER2DB) return 0;
 
   if ((!CreateVorbisDecoder || !CreateVorbisEncoder) && GetMainHwnd())
   {
-#define GETAPI(x) *(VstIntPtr *)&(x) = hostcb(NULL,0xdeadbeef,0xdeadf00d,0,(void *)#x,0.0);
+#define GETAPI(x) import_vst_reaper_api((void **)&x, #x, hostcb);
     GETAPI(CreateVorbisDecoder)
     GETAPI(CreateVorbisEncoder)
 
     if (!CreateVorbisEncoder||!CreateVorbisDecoder) return 0;
   }
 
-  g_main_thread=GetCurrentThreadId();
+  if (!api_ok)
+  {
+    g_main_thread=GetCurrentThreadId();
+    api_ok = true;
+  }
 
   if (PluginWantsAlwaysRunFx) PluginWantsAlwaysRunFx(1);
   VSTEffectClass *obj = new VSTEffectClass(hostcb);
@@ -598,7 +603,7 @@ __declspec(dllexport) AEffect *VSTPluginMain(audioMasterCallback hostcb)
 
 BOOL WINAPI DllMain(HINSTANCE hDllInst, DWORD fdwReason, LPVOID res)
 {
-  if (fdwReason==DLL_PROCESS_ATTACH) 
+  if (fdwReason==DLL_PROCESS_ATTACH)
   {
     g_hInst=hDllInst;
   }

@@ -46,11 +46,12 @@
 #include "../njclient.h"
 #include "../../WDL/dirscan.h"
 #include "../../WDL/lineparse.h"
+#include "../../WDL/wdlcstring.h"
 
 #include "../njmisc.h"
 
 
-#define VALIDATE_TEXT_CHAR(thischar) ((isspace(thischar) || isgraph(thischar)) && (thischar) < 256)
+#define VALIDATE_TEXT_CHAR(thischar) ((isspace_safe(thischar) || isgraph_safe(thischar)) && (thischar) < 256)
 #ifdef _WIN32
 #define getch() curses_getch(CURSES_INSTANCE)
 #define erase() curses_erase(CURSES_INSTANCE)
@@ -394,7 +395,7 @@ void showmainview(bool action=false, int ymove=0)
     int sch;
     bool bc,mute;
     float vol,pan;
-    char *name=g_client->GetLocalChannelInfo(a,&sch,NULL,&bc);
+    const char *name=g_client->GetLocalChannelInfo(a,&sch,NULL,&bc);
     g_client->GetLocalChannelMonitoring(a,&vol,&pan,&mute,NULL);
 
     if (action && g_sel_ycat == selcat && g_sel_ypos == selpos)
@@ -598,7 +599,7 @@ void showmainview(bool action=false, int ymove=0)
   {
     if (!x) // show user info
     {
-      char *name=g_client->GetUserState(user);
+      const char *name=g_client->GetUserState(user);
       if (!name) break;
 
 	    bkgdset(COLORMAP(4));
@@ -623,7 +624,7 @@ void showmainview(bool action=false, int ymove=0)
 
     float vol,pan;
     bool sub,mute;
-    char *name=g_client->GetUserChannelState(user,a,&sub,&vol,&pan,&mute);
+    const char *name=g_client->GetUserChannelState(user,a,&sub,&vol,&pan,&mute);
     // show channel info
 
 
@@ -1843,7 +1844,7 @@ time(NULL) >= nextupd
         int sch=0;
         bool bc=0;
         void *has_jesus=0;
-        char *lcn;
+        const char *lcn;
         float v=0.0f,p=0.0f;
         bool m=0,s=0;
       
@@ -1851,13 +1852,15 @@ time(NULL) >= nextupd
         g_client->GetLocalChannelMonitoring(a,&v,&p,&m,&s);
         g_client->GetLocalChannelProcessor(a,NULL,&has_jesus);
 
-        char *ptr=lcn;
+        char tmp[512];
+        lstrcpyn_safe(tmp,lcn,sizeof(tmp));
+        char *ptr=tmp;
         while (*ptr)
         {
           if (*ptr == '`') *ptr='\'';
           ptr++;
         }
-        fprintf(fp,"local %d source %d bc %d mute %d solo %d volume %f pan %f jesus %d name `%s`\n",a,sch,bc,m,s,v,p,!!has_jesus,lcn);
+        fprintf(fp,"local %d source %d bc %d mute %d solo %d volume %f pan %f jesus %d name `%s`\n",a,sch,bc,m,s,v,p,!!has_jesus,tmp);
       }
       fclose(fp);
     }    

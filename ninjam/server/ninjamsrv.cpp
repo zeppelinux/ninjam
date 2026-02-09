@@ -169,7 +169,7 @@ WDL_String g_config_license;
 class localUserInfoLookup : public IUserInfoLookup
 {
 public:
-  localUserInfoLookup(char *name)
+  localUserInfoLookup(const char *name)
   {
     username.Set(name);
   }
@@ -277,7 +277,7 @@ public:
 };
 
 
-static IUserInfoLookup *myCreateUserLookup(char *username)
+static IUserInfoLookup *myCreateUserLookup(const char *username)
 {
   return new localUserInfoLookup(username);
 }
@@ -1131,8 +1131,8 @@ int main(int argc, char **argv)
         }
         if (kbhit())
         {
-          int c=toupper(getch());
-          printf("%c\n",isalpha(c)?c:'?');
+          int c=toupper_safe(getch());
+          printf("%c\n",isalpha_safe(c)?c:'?');
           if (esc_state)
           {
             if (c == 'Y') break;

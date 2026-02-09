@@ -620,6 +620,7 @@ WDL_VWnd::WDL_VWnd()
   m_lastmouseidx=-1;
   m_userdata=0;
   m_curPainter=0;
+  m_focused_child = -2;
 }
 
 WDL_VWnd::~WDL_VWnd() 
@@ -807,7 +808,7 @@ void WDL_VWnd::OnPaint(LICE_IBitmap *drawbm, int origin_x, int origin_y, RECT *c
   if (m_children) for (x = m_children->GetSize()-1; x >=0; x --)
   {
     WDL_VWnd *ch=m_children->Get(x);
-    if (ch->IsVisible())
+    if (PrepareToDrawChild(ch,0) && ch->IsVisible())
     {
       RECT re;
       ch->GetPosition(&re);
@@ -844,7 +845,7 @@ void WDL_VWnd::OnPaintOver(LICE_IBitmap *drawbm, int origin_x, int origin_y, REC
   if (m_children) for (x = m_children->GetSize()-1; x >=0; x --)
   {
     WDL_VWnd *ch=m_children->Get(x);
-    if (ch->IsVisible() && ch->WantsPaintOver())
+    if (PrepareToDrawChild(ch,1) && ch->IsVisible() && ch->WantsPaintOver())
     {
       RECT re;
       ch->GetPosition(&re);
@@ -911,7 +912,7 @@ WDL_VWnd *WDL_VWnd::VirtWndFromPoint(int xpos, int ypos, int maxdepth)
   if (m_children) for (x = 0; x < m_children->GetSize(); x++)
   {
     WDL_VWnd *wnd=m_children->Get(x);
-    if (wnd->IsVisible())
+    if (wnd->IsVisible() && !wnd->DoNotHitTest())
     {
       RECT r;
       wnd->GetPosition(&r);
@@ -1004,31 +1005,12 @@ void WDL_VWnd::OnMouseMove(int xpos, int ypos)
   if (!wnd) 
   {
     wnd=VirtWndFromPoint(xpos,ypos,0);
-    if (wnd) // todo: stuff so if the mouse goes out of the window completely, the virtualwnd gets notified
-    {
-      int idx=m_children->Find(wnd);
-      if (idx != m_lastmouseidx)
-      {
-        WDL_VWnd *t=m_children->Get(m_lastmouseidx);
-        if (t)
-        {
-          RECT r;
-          t->GetPosition(&r);
-          t->OnMouseMove(xpos-r.left,ypos-r.top);
-        }
-        if (chk.isOK()) m_lastmouseidx=idx;
-      }
-    }
-    else
+    int idx = wnd ? m_children->Find(wnd) : -1;
+    if (idx != m_lastmouseidx)
     {
       WDL_VWnd *t=m_children->Get(m_lastmouseidx);
-      if (t)
-      {
-        RECT r;
-        t->GetPosition(&r);
-        t->OnMouseMove(xpos-r.left,ypos-r.top);
-      }
-      if (chk.isOK()) m_lastmouseidx=-1;
+      if (t) t->OnMouseMove(-1000,-1000);
+      if (chk.isOK()) m_lastmouseidx=idx;
     }
   }
 
@@ -1118,11 +1100,13 @@ public:
   unsigned int lastused; // last used time
   void *lastowner;
 
-  static int compar(const WDL_VirtualWnd_BGCfgCache_img **a, const WDL_VirtualWnd_BGCfgCache_img ** b)
+  static int comparfunc(const WDL_VirtualWnd_BGCfgCache_img *a, const WDL_VirtualWnd_BGCfgCache_img *b)
   {
-    const int v = (*a)->scalinginfo - (*b)->scalinginfo;
-    if (v) return v;
-    return (*a)->sizeinfo - (*b)->sizeinfo;
+    if (a->scalinginfo < b->scalinginfo) return -1;
+    if (a->scalinginfo > b->scalinginfo) return 1;
+    if (a->sizeinfo < b->sizeinfo) return -1;
+    if (a->sizeinfo > b->sizeinfo) return 1;
+    return 0;
     
   }
 };
@@ -1131,23 +1115,16 @@ public:
 class WDL_VirtualWnd_BGCfgCache_ar
 {
 public:
-  WDL_VirtualWnd_BGCfgCache_ar() : m_cachelist(compar, NULL, NULL, destrval) { }
+  WDL_VirtualWnd_BGCfgCache_ar() : m_cachelist(destrval) { }
   ~WDL_VirtualWnd_BGCfgCache_ar() {  }
 
-  WDL_AssocArray<const LICE_IBitmap *,  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> * > m_cachelist;
+  WDL_KeyedArray<const LICE_IBitmap *,  WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> * > m_cachelist;
 
   static void destrval(WDL_PtrList<WDL_VirtualWnd_BGCfgCache_img> *list)
   {
     if (list) list->Empty(true);
     delete list;
   }
-  static int compar(const LICE_IBitmap **a, const LICE_IBitmap ** b)
-  {
-    if ((*a) < (*b)) return -1;
-    if ((*a) > (*b)) return 1;
-    return 0;
-  }
-
 };
 
 
@@ -1175,7 +1152,7 @@ LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::GetCachedBG(int w, int h, int sinfo2, v
   if (!cache) return NULL;
 
   WDL_VirtualWnd_BGCfgCache_img tmp((h<<16)+w,sinfo2,NULL,0);
-  WDL_VirtualWnd_BGCfgCache_img *r  = cache->Get(cache->FindSorted(&tmp,WDL_VirtualWnd_BGCfgCache_img::compar));
+  WDL_VirtualWnd_BGCfgCache_img *r  = cache->Get(cache->FindSorted(&tmp,WDL_VirtualWnd_BGCfgCache_img::comparfunc));
   if (r)
   {
     r->lastused = GetTickCount();
@@ -1274,7 +1251,7 @@ LICE_IBitmap *WDL_VirtualWnd_BGCfgCache::SetCachedBG(int w, int h, int sinfo2, L
     img->lastowner = owner_hint;
     if (bmCopy) LICE_Copy(img->bgimage, bmCopy);
 
-    cache->InsertSorted(img, WDL_VirtualWnd_BGCfgCache_img::compar);
+    cache->InsertSorted(img, WDL_VirtualWnd_BGCfgCache_img::comparfunc);
     return img->bgimage;
   }
   return NULL;
@@ -1524,11 +1501,6 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
   int right_margin=src->bgimage_rb[0];
   int bottom_margin=src->bgimage_rb[1];
 
-  int left_margin_out=src->bgimage_lt_out[0];
-  int top_margin_out=src->bgimage_lt_out[1];
-  int right_margin_out=src->bgimage_rb_out[0];
-  int bottom_margin_out=src->bgimage_rb_out[1];
-
   int sw=src->bgimage->getWidth();
   int sh=src->bgimage->getHeight();
 
@@ -1565,9 +1537,18 @@ void WDL_VirtualWnd_ScaledBlitBG(LICE_IBitmap *dest,
     return;
   }
 
+  WDL_ASSERT(src->bgimage_lt_out[0]>0); // if pinklines are nonzero, yellowlines must be too (they are all 1-based)
+  WDL_ASSERT(src->bgimage_lt_out[1]>0); // if these fire, check for uninitialized bgimage_lt_out etc
+  WDL_ASSERT(src->bgimage_rb_out[0]>0);
+  WDL_ASSERT(src->bgimage_rb_out[1]>0);
+
+  const int left_margin_out   = src->bgimage_lt_out[0]-1;
+  const int top_margin_out    = src->bgimage_lt_out[1]-1;
+  const int right_margin_out  = src->bgimage_rb_out[0]-1;
+  const int bottom_margin_out = src->bgimage_rb_out[1]-1;
+
   // remove 1px additional margins from calculations
   left_margin--; top_margin--; right_margin--; bottom_margin--;
-  left_margin_out--; top_margin_out--; right_margin_out--; bottom_margin_out--;
 
   if (left_margin+right_margin>destw) 
   { 
@@ -1771,7 +1752,9 @@ static WNDPROC vwndDlgHost_oldProc;
 static LRESULT CALLBACK vwndDlgHost_newProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
   if (msg==WM_ERASEBKGND) return 1;
-  if (msg==WM_PAINT)
+  if (msg==WM_PAINT ||
+      (msg == WM_SETFOCUS && (GetWindowLong(hwnd,GWL_STYLE)&(WS_CHILD|WS_TABSTOP))==(WS_CHILD|WS_TABSTOP))
+      )
   {
     WNDPROC pc=(WNDPROC)GetWindowLongPtr(hwnd,DWLP_DLGPROC);
     if (pc)

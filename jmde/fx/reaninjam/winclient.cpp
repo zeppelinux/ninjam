@@ -21,7 +21,7 @@
 /*
 
   Windows client code.
-  
+
   */
 
 #ifdef _WIN32
@@ -59,8 +59,6 @@
 #include "../../../WDL/win32_utf8.c"
 #endif
 
-#define CONFSEC "ninjam"
-
 #include "../../../WDL/setthreadname.h"
 
 extern HWND (*GetMainHwnd)();
@@ -81,7 +79,7 @@ class VSTEffectClass;
 extern VSTEffectClass *g_vst_object;
 
 WDL_FastString g_ini_file;
-static char g_inipath[1024]; 
+static char g_inipath[1024];
 
 WDL_Mutex g_client_mutex;
 NJClient *g_client;
@@ -97,10 +95,9 @@ static int g_connect_passremember, g_connect_anon;
 static RECT g_last_wndpos;
 static int g_last_wndpos_state;
 static int g_config_appear=0; // &1=don't flash beat counter on !(beat%16)
-// static int g_config_sync=0; // unused
 static bool s_want_sync;
-int g_config_audio_outputs; // &1=local go to 3/4, &2=metronome goes to 5
 
+int g_config_num_inputs = 8, g_config_num_outputs = 6;
 
 #define SWAP(a,b,t) { t __tmp = (a); (a)=(b); (b)=__tmp; }
 
@@ -114,15 +111,15 @@ static void GetDefaultSessionDir(char *str, int strsize)
   strcat(str,PREF_DIRSTR "NINJAMsessions");
 }
 
-void audiostream_onsamples(float **inbuf, int innch, float **outbuf, int outnch, int len, int srate, bool isPlaying, bool isSeek, double curpos) 
-{ 
-  if (/*!g_audio_enable||*/!g_client) 
+void audiostream_onsamples(float **inbuf, int innch, float **outbuf, int outnch, int len, int srate, bool isPlaying, bool isSeek, double curpos)
+{
+  if (/*!g_audio_enable||*/!g_client)
   {
     int x;
     if (outnch <= innch)
     {
       // clear all output buffers
-      for (x = 0; x < outnch; x ++) 
+      for (x = 0; x < outnch; x ++)
       {
         memcpy(outbuf[x],inbuf[x],sizeof(float)*len);
       }
@@ -134,7 +131,7 @@ void audiostream_onsamples(float **inbuf, int innch, float **outbuf, int outnch,
 
         float *outptr=outbuf[0];
         float *outptr2=outbuf[1];
-        while (a--) 
+        while (a--)
         {
           *outptr++ += *inptr++;
           *outptr2++ += *inptr2++;
@@ -143,8 +140,6 @@ void audiostream_onsamples(float **inbuf, int innch, float **outbuf, int outnch,
     }
     return;
   }
-  g_client->SetLocalChannelOffset((g_config_audio_outputs&1) ? 2 : 0);
-  g_client->SetMetronomeChannel((g_config_audio_outputs&2) ? (4|1024) : 0);
   g_client->AudioProc(inbuf,innch, outbuf, outnch, len,srate,!g_audio_enable, isPlaying, isSeek,curpos);
 }
 
@@ -160,8 +155,16 @@ static WDL_DLGRET PrefsProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
           CheckDlgButton(hwndDlg,IDC_SAVELOCAL,BST_CHECKED);
         if (GetPrivateProfileInt(CONFSEC,"savelocalwav",0,g_ini_file.Get()))
           CheckDlgButton(hwndDlg,IDC_SAVELOCALWAV,BST_CHECKED);
+        SetDlgItemInt(hwndDlg,IDC_INCH,g_config_num_inputs,FALSE);
+        SetDlgItemInt(hwndDlg,IDC_OUTCH,g_config_num_outputs,FALSE);
 
-       if (!(g_config_appear&1)) CheckDlgButton(hwndDlg, IDC_FLASH, BST_CHECKED);
+        if (!(g_config_appear&1)) CheckDlgButton(hwndDlg, IDC_FLASH, BST_CHECKED);
+
+        WDL_UTF8_HookComboBox(GetDlgItem(hwndDlg,IDC_COMBO1));
+        SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_ADDSTRING, 0, (LPARAM)__LOCALIZE("Manually assign remote channels","reaninjam"));
+        SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_ADDSTRING, 0, (LPARAM)__LOCALIZE("Auto assign remote channels to pairs 3-n","reaninjam"));
+        SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_ADDSTRING, 0, (LPARAM)__LOCALIZE("Auto assign remote users to pairs 3-n","reaninjam"));
+        SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_SETCURSEL, g_client->config_remote_autochan, 0);
 
         char str[2048];
         GetPrivateProfileString(CONFSEC,"sessiondir","",str,sizeof(str),g_ini_file.Get());
@@ -170,9 +173,9 @@ static WDL_DLGRET PrefsProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
           GetDefaultSessionDir(str,sizeof(str));
           SetDlgItemText(hwndDlg,IDC_SESSIONDIR,str);
         }
-        else 
+        else
           SetDlgItemText(hwndDlg,IDC_SESSIONDIR,str);
-        
+
         if (g_client->GetStatus() != NJClient::NJC_STATUS_OK)
           ShowWindow(GetDlgItem(hwndDlg,IDC_CHNOTE),SW_HIDE);
       }
@@ -185,22 +188,22 @@ static WDL_DLGRET PrefsProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
         #ifdef _WIN32
           {
             BROWSEINFO bi={0,};
-			      LPITEMIDLIST idlist;
-			      char name[2048];
-			      GetDlgItemText(hwndDlg,IDC_SESSIONDIR,name,sizeof(name));
-			      bi.hwndOwner = hwndDlg;
-			      bi.pszDisplayName = name;
-			      bi.lpszTitle = "Select a directory:";
-			      bi.ulFlags = BIF_RETURNONLYFSDIRS|0x40;
-			      idlist = SHBrowseForFolder( &bi );
-			      if (idlist) 
+            LPITEMIDLIST idlist;
+            char name[2048];
+            GetDlgItemText(hwndDlg,IDC_SESSIONDIR,name,sizeof(name));
+            bi.hwndOwner = hwndDlg;
+            bi.pszDisplayName = name;
+            bi.lpszTitle = __LOCALIZE("Select a directory:","reaninjam");
+            bi.ulFlags = BIF_RETURNONLYFSDIRS|0x40;
+            idlist = SHBrowseForFolder( &bi );
+            if (idlist)
             {
-				      SHGetPathFromIDList( idlist, name );        
-	            IMalloc *m;
-	            SHGetMalloc(&m);
-	            m->Free(idlist);
-				      SetDlgItemText(hwndDlg,IDC_SESSIONDIR,name);
-			      }
+              SHGetPathFromIDList( idlist, name );
+              IMalloc *m;
+              SHGetMalloc(&m);
+              m->Free(idlist);
+              SetDlgItemText(hwndDlg,IDC_SESSIONDIR,name);
+            }
           }
         #else
         // todo: macport
@@ -224,6 +227,46 @@ static WDL_DLGRET PrefsProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
             if (!IsDlgButtonChecked(hwndDlg, IDC_FLASH)) g_config_appear |= 1;
             snprintf(buf, sizeof(buf), "%d", g_config_appear);
             WritePrivateProfileString(CONFSEC, "config_appear", buf, g_ini_file.Get());
+
+            int a = (int)SendDlgItemMessage(hwndDlg,IDC_COMBO1,CB_GETCURSEL,0,0);
+            if (a >= 0)
+            {
+              g_client->config_remote_autochan = a;
+              snprintf(buf,sizeof(buf), "%d", a);
+              WritePrivateProfileString(CONFSEC, "remote_autochan", buf, g_ini_file.Get());
+            }
+
+            bool localref = false;
+            BOOL t;
+            int v = GetDlgItemInt(hwndDlg,IDC_INCH,&t,FALSE);
+            if (t)
+            {
+              v = wdl_clamp(v,2,MAX_INPUTS);
+              if (v != g_config_num_inputs)
+              {
+                g_config_num_inputs = v;
+                snprintf(buf,sizeof(buf),"%d",v);
+                WritePrivateProfileString(CONFSEC, "num_ins", buf, g_ini_file.Get());
+                localref = true;
+              }
+            }
+            v = GetDlgItemInt(hwndDlg,IDC_OUTCH,&t,FALSE);
+            if (t)
+            {
+              v = wdl_clamp(v,2,MAX_OUTPUTS);
+              if (v != g_config_num_outputs)
+              {
+                g_config_num_outputs = v;
+                g_client->config_remote_autochan_nch = v;
+                snprintf(buf,sizeof(buf),"%d",v);
+                WritePrivateProfileString(CONFSEC, "num_outs", buf, g_ini_file.Get());
+
+                localref = true;
+                PopulateOutputCombo(GetDlgItem(g_hwnd,IDC_METROOUT), g_client->GetMetronomeChannel());
+                if (m_remwnd) SendMessage(m_remwnd, WM_LCUSER_REPOP_CH,0,0);
+              }
+            }
+            if (localref) SendMessage(m_locwnd, WM_LCUSER_REPOP_CH,0,0);
 
             EndDialog(hwndDlg,1);
           }
@@ -268,7 +311,7 @@ static int RepopulateServerList(HWND hwnd) // return 1 if END encountered
   WDL_String tmp(m_listbuf.Get());
   char *p = tmp.Get();
   int i = 0;
-  do 
+  do
   {
     char *d = strstr(p,"\n");
     if(!d) break;
@@ -293,7 +336,7 @@ static int RepopulateServerList(HWND hwnd) // return 1 if END encountered
         ListView_SetItemText(list, a, 2, (char*)lp.gettoken_str(3));
       }
     }
-  
+
     p = d+1;
   } while(1);
   return 0;
@@ -305,7 +348,7 @@ static void getServerList_step(HWND hwnd)
   switch(m_getServerList_status)
   {
   case 0:
-    getServerList_setStatusTxt(hwnd, "Requesting list...");
+    getServerList_setStatusTxt(hwnd, __LOCALIZE("Requesting list...","reaninjam"));
     m_listbuf.Set("");
     delete m_httpget;
     m_httpget=new JNL_HTTPGet;
@@ -327,7 +370,7 @@ static void getServerList_step(HWND hwnd)
       {
         delete(m_httpget);
         m_httpget=NULL;
-        getServerList_setStatusTxt(hwnd, "Error requesting server list!");
+        getServerList_setStatusTxt(hwnd, __LOCALIZE("Error requesting server list!","reaninjam"));
         m_getServerList_status=9999;
       }
       if(ret==1||strlen(m_listbuf.Get()) > 1024*1024*8) // prevent us from eating more than 8mb ram
@@ -343,7 +386,7 @@ static void getServerList_step(HWND hwnd)
       delete m_httpget;
       m_httpget=0;
 
-      
+
       if (RepopulateServerList(hwnd))
         serverlist_last_valid_t=time(NULL);
     }
@@ -417,8 +460,8 @@ static WDL_DLGRET ConnectDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
         if (ww>0 && wh>0)
           SetWindowPos(hwndDlg,NULL,0,0,ww,wh,SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE);
 
-        int x;
-        for (x = 0; x < MAX_HIST_ENTRIES; x ++)
+        WDL_UTF8_HookComboBox(GetDlgItem(hwndDlg,IDC_HOST));
+        for (int x = 0; x < MAX_HIST_ENTRIES; x ++)
         {
           char fmtbuf[32];
           sprintf(fmtbuf,"recent%02d",x);
@@ -441,20 +484,21 @@ static WDL_DLGRET ConnectDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
           CheckDlgButton(hwndDlg,IDC_ANON,BST_CHECKED);
           ShowWindow(GetDlgItem(hwndDlg,IDC_PASSLBL),SW_SHOWNA);
           ShowWindow(GetDlgItem(hwndDlg,IDC_PASS),SW_SHOWNA);
-          ShowWindow(GetDlgItem(hwndDlg,IDC_PASSREMEMBER),SW_SHOWNA);          
+          ShowWindow(GetDlgItem(hwndDlg,IDC_PASSREMEMBER),SW_SHOWNA);
         }
 
         HWND list = GetDlgItem(hwndDlg, IDC_LIST1);
+        WDL_UTF8_HookListView(list);
         {
-          LVCOLUMN lvc={LVCF_TEXT|LVCF_WIDTH,0,160,(char*)"Server"};
+          LVCOLUMN lvc={LVCF_TEXT|LVCF_WIDTH,0,160,(char*)__LOCALIZE("Server","reaninjam")};
           ListView_InsertColumn(list,0,&lvc);
         }
         {
-          LVCOLUMN lvc={LVCF_TEXT|LVCF_WIDTH,0,130,(char*)"Info"};
+          LVCOLUMN lvc={LVCF_TEXT|LVCF_WIDTH,0,130,(char*)__LOCALIZE("Info","reaninjam")};
           ListView_InsertColumn(list,1,&lvc);
         }
         {
-          LVCOLUMN lvc={LVCF_TEXT|LVCF_WIDTH,0,800,(char*)"Users"};
+          LVCOLUMN lvc={LVCF_TEXT|LVCF_WIDTH,0,800,(char*)__LOCALIZE("Users","reaninjam")};
           ListView_InsertColumn(list,2,&lvc);
         }
         ListView_SetExtendedListViewStyleEx(GetDlgItem(hwndDlg,IDC_LIST1),LVS_EX_FULLROWSELECT,LVS_EX_FULLROWSELECT);
@@ -473,7 +517,7 @@ static WDL_DLGRET ConnectDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
 #endif
           }
         }
-          
+
         SetTimer(hwndDlg, 0x456, 100, 0);
       }
     return 0;
@@ -513,13 +557,13 @@ static WDL_DLGRET ConnectDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
           {
             ShowWindow(GetDlgItem(hwndDlg,IDC_PASSLBL),SW_HIDE);
             ShowWindow(GetDlgItem(hwndDlg,IDC_PASS),SW_HIDE);
-            ShowWindow(GetDlgItem(hwndDlg,IDC_PASSREMEMBER),SW_HIDE);          
+            ShowWindow(GetDlgItem(hwndDlg,IDC_PASSREMEMBER),SW_HIDE);
           }
           else
           {
             ShowWindow(GetDlgItem(hwndDlg,IDC_PASSLBL),SW_SHOWNA);
             ShowWindow(GetDlgItem(hwndDlg,IDC_PASS),SW_SHOWNA);
-            ShowWindow(GetDlgItem(hwndDlg,IDC_PASSREMEMBER),SW_SHOWNA);          
+            ShowWindow(GetDlgItem(hwndDlg,IDC_PASSREMEMBER),SW_SHOWNA);
           }
         break;
 
@@ -532,7 +576,7 @@ static WDL_DLGRET ConnectDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
             GetDlgItemText(hwndDlg,IDC_HOST,buf,sizeof(buf));
             if(!buf[0])
             {
-              MessageBox(hwndDlg,"You must enter a server hostname!","Error",0);
+              MessageBox(hwndDlg,__LOCALIZE("You must enter a server hostname!","reaninjam"),__LOCALIZE("NINJAM Error","reaninjam"),0);
               break;
             }
             g_connect_host.Set(buf);
@@ -540,7 +584,7 @@ static WDL_DLGRET ConnectDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
             GetDlgItemText(hwndDlg,IDC_USER,buf,sizeof(buf));
             if(!buf[0] && !g_connect_anon)
             {
-              MessageBox(hwndDlg,"You must enter a username!","Error",0);
+              MessageBox(hwndDlg,__LOCALIZE("You must enter a username!","reaninjam"),__LOCALIZE("NINJAM Error","reaninjam"),0);
               break;
             }
             g_connect_user.Set(buf);
@@ -590,7 +634,9 @@ static void updateConnectButton(HWND hwnd)
 {
   if (hwnd && g_client)
   {
-    SetDlgItemText(hwnd,IDC_CONNECT,g_client->GetStatus()==0 ? "Disconnect" : "Connect...");
+    SetDlgItemText(hwnd,IDC_CONNECT,
+        g_client->GetStatus()==0 ? __LOCALIZE("Disconnect","reaninjam") :
+                                   __LOCALIZE("Connect...","reaninjam"));
   }
 }
 
@@ -605,19 +651,19 @@ static void do_disconnect()
   g_client_mutex.Enter();
 
   WDL_String sessiondir(g_client->GetWorkDir()); // save a copy of the work dir before we blow it away
-  
+
   g_client->Disconnect();
   delete g_client->waveWrite;
   g_client->waveWrite=0;
   g_client->SetWorkDir(NULL);
   g_client->SetOggOutFile(NULL,0,0,0);
   g_client->SetLogFile(NULL);
-  
+
   g_client_mutex.Leave();
 
   if (sessiondir.Get()[0])
   {
-    chat_addline("","Disconnected from server");
+    chat_addline("",__LOCALIZE("Disconnected from server","reaninjam"));
     if (!g_client->config_savelocalaudio)
     {
       int n;
@@ -627,7 +673,7 @@ static void do_disconnect()
         char buf[32];
         sprintf(buf,"%x",n);
         s.Append(buf);
-    
+
         {
           WDL_DirScan ds;
           if (!ds.First(s.Get()))
@@ -638,7 +684,7 @@ static void do_disconnect()
               {
                 WDL_String t;
                 ds.GetCurrentFullFN(&t);
-                unlink(t.Get());          
+                unlink(t.Get());
               }
             }
             while (!ds.Next());
@@ -648,12 +694,12 @@ static void do_disconnect()
       }
       RemoveDirectory(sessiondir.Get());
     }
-    
+
   }
   updateConnectButton(g_hwnd);
 }
 
-WDL_FastString g_last_status("Status: not connected.");
+WDL_FastString g_last_status("---");
 
 static void do_connect()
 {
@@ -686,7 +732,7 @@ static void do_connect()
   {
     time_t tv = time(NULL);
     struct tm *t=tv > 0 ? localtime(&tv) : NULL;
-  
+
     buf[0]=0;
 
     lstrcpyn_safe(buf,sroot,(int) sizeof(buf));
@@ -704,15 +750,16 @@ static void do_connect()
     cnt++;
   }
   if (cnt >= 16)
-  {      
-    g_last_status.Set("Status: ERROR CREATING SESSION DIRECTORY");
+  {
+    g_last_status.Set(__LOCALIZE("Status: ERROR CREATING SESSION DIRECTORY","reaninjam"));
     InvalidateRect(GetDlgItem(g_hwnd,IDC_INTERVALPOS),NULL,FALSE);
-    MessageBox(g_hwnd,"Error creating session directory!", "NINJAM error", MB_OK);
+    MessageBox(g_hwnd,__LOCALIZE("Error creating session directory!","reaninjam"),
+        __LOCALIZE("NINJAM Error","reaninjam"), MB_OK);
     return;
   }
 
   g_client_mutex.Enter();
-  
+
   SendMessage(m_locwnd,WM_LCUSER_REPOP_CH,0,0);
 
   g_client->SetWorkDir(buf);
@@ -721,11 +768,11 @@ static void do_connect()
   if (GetPrivateProfileInt(CONFSEC,"savelocal",1,g_ini_file.Get()))
   {
     g_client->config_savelocalaudio|=1;
-    if (GetPrivateProfileInt(CONFSEC,"savelocalwav",0,g_ini_file.Get())) 
+    if (GetPrivateProfileInt(CONFSEC,"savelocalwav",0,g_ini_file.Get()))
       g_client->config_savelocalaudio|=2;
   }
-  
-  
+
+
   if (g_client->config_savelocalaudio)
   {
     WDL_String lf;
@@ -740,7 +787,7 @@ static void do_connect()
 
   g_client_mutex.Leave();
 
-  g_last_status.Set("Status: Connecting...");
+  g_last_status.Set(__LOCALIZE("Status: Connecting...","reaninjam"));
   InvalidateRect(GetDlgItem(g_hwnd,IDC_INTERVALPOS),NULL,FALSE);
 
   EnableMenuItem(GetMenu(g_hwnd),ID_OPTIONS_AUDIOCONFIGURATION,MF_BYCOMMAND|MF_GRAYED);
@@ -793,25 +840,25 @@ void my_getViewport(RECT *r, const RECT *sr, bool wantWork) {
 #else
 
 void my_getViewport(RECT *r, const RECT *sr, bool wantWork) {
-  if (sr) 
+  if (sr)
   {
-	  static HINSTANCE hlib;
+    static HINSTANCE hlib;
     static bool haschk;
-    
+
     if (!haschk && !hlib) { hlib=LoadLibrary("user32.dll");haschk=true; }
 
-	  if (hlib) 
+    if (hlib)
     {
 
       static HMONITOR (WINAPI *Mfr)(LPCRECT lpcr, DWORD dwFlags);
       static BOOL (WINAPI *Gmi)(HMONITOR mon, MONITORINFOEX* lpmi);
 
       if (!Mfr) Mfr = (HMONITOR (WINAPI *)(LPCRECT, DWORD)) GetProcAddress(hlib, "MonitorFromRect");
-      if (!Gmi) Gmi = (BOOL (WINAPI *)(HMONITOR,MONITORINFOEX*)) GetProcAddress(hlib,"GetMonitorInfoA");    
+      if (!Gmi) Gmi = (BOOL (WINAPI *)(HMONITOR,MONITORINFOEX*)) GetProcAddress(hlib,"GetMonitorInfoA");
 
-			if (Mfr && Gmi) {
-			  HMONITOR hm;
-			  hm=Mfr(sr,MONITOR_DEFAULTTONULL);
+      if (Mfr && Gmi) {
+        HMONITOR hm;
+        hm=Mfr(sr,MONITOR_DEFAULTTONULL);
         if (hm) {
           MONITORINFOEX mi;
           memset(&mi,0,sizeof(mi));
@@ -822,11 +869,11 @@ void my_getViewport(RECT *r, const RECT *sr, bool wantWork) {
               *r=mi.rcWork;
             else *r=mi.rcMonitor;
             return;
-          }          
+          }
         }
-			}
-		}
-	}
+      }
+    }
+  }
   if (wantWork)
     SystemParametersInfo(SPI_GETWORKAREA,0,r,0);
   else
@@ -839,13 +886,39 @@ static void EnsureNotCompletelyOffscreen(RECT *r)
   RECT tmp;
   RECT scr;
   my_getViewport(&scr, r,false);
-  if (!IntersectRect(&tmp,&scr,r)) 
+  if (!IntersectRect(&tmp,&scr,r))
   {
     r->right -= r->left;
     r->bottom -= r->top;
     r->left = 0;
     r->top = 0;
   }
+}
+LRESULT WINAPI ninjamDividerProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+  switch (msg)
+  {
+    case WM_PAINT:
+      {
+        PAINTSTRUCT ps;
+        if (BeginPaint(hwnd,&ps))
+        {
+          HBRUSH br1 = CreateSolidBrush(GetSysColor(COLOR_3DHILIGHT));
+          HBRUSH br2 = CreateSolidBrush(GetSysColor(COLOR_3DSHADOW));
+          RECT cr,r1;
+          GetClientRect(hwnd,&cr);
+          cr.bottom = cr.top+1;
+          if (IntersectRect(&r1,&cr,&ps.rcPaint)) FillRect(ps.hdc,&r1,br2);
+          OffsetRect(&cr,0,1);
+          if (IntersectRect(&r1,&cr,&ps.rcPaint)) FillRect(ps.hdc,&r1,br1);
+          EndPaint(hwnd,&ps);
+          DeleteObject(br1);
+          DeleteObject(br2);
+        }
+      }
+    return 0;
+  }
+  return DefWindowProc(hwnd,msg,wParam,lParam);
 }
 
 static int last_interval_len=-1;
@@ -936,11 +1009,13 @@ LRESULT WINAPI ninjamStatusProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
           {
             char buf[128];
             snprintf(buf,sizeof(buf),"%d BPM %d BPI",last_bpm_i,last_interval_len);
-            DrawText(ps.hdc,buf,-1,&tr,(lasth > fontsz*5/2 ?DT_LEFT:DT_RIGHT)|DT_TOP|DT_NOPREFIX|DT_SINGLELINE);
+            DrawTextUTF8(ps.hdc,buf,-1,&tr,(lasth > fontsz*5/2 ?DT_LEFT:DT_RIGHT)|DT_TOP|DT_NOPREFIX|DT_SINGLELINE);
           }
           if (g_last_status.GetLength())
           {
-            DrawText(ps.hdc,g_last_status.Get(),-1,&tr,DT_LEFT|DT_BOTTOM|DT_NOPREFIX|DT_SINGLELINE);
+            if (!strcmp(g_last_status.Get(),"---"))
+              g_last_status.Set(__LOCALIZE("Status: not connected.","reaninjam"));
+            DrawTextUTF8(ps.hdc,g_last_status.Get(),-1,&tr,DT_LEFT|DT_BOTTOM|DT_NOPREFIX|DT_SINGLELINE);
           }
           SetTextColor(ps.hdc,fg);
           if (last_bpm_i > 0 && last_interval_len > 1 && want_numbers)
@@ -977,6 +1052,37 @@ HWND getHWNDFromChannel(int chan); // see above
 
 #define MAX_CHANNELS_MENU 10 // we only show 10 channels in the menus
 
+void PopulateOutputCombo(HWND hwndCombo, int sel, bool allowmono)
+{
+  if (WDL_NOT_NORMALLY(!hwndCombo)) return;
+  if (SendMessage(hwndCombo,CB_GETCOUNT,0,0))
+  {
+    SendMessage(hwndCombo,CB_RESETCONTENT,0,0);
+  }
+  else
+  {
+    WDL_UTF8_HookComboBox(hwndCombo);
+  }
+  const char *fmt1 = __LOCALIZE_VERFMT("Output %d","reaninjam");
+  const char *fmt2 = __LOCALIZE_VERFMT("Output %d/%d","reaninjam");
+  char buf[128];
+  for (int x = 0; x < g_config_num_outputs-1; x ++)
+  {
+    if (!x) lstrcpyn_safe(buf,__LOCALIZE("Main outputs","reaninjam"),sizeof(buf));
+    else snprintf(buf,sizeof(buf),fmt2,x+1,x+2);
+    int idx = (int)SendMessage(hwndCombo,CB_ADDSTRING,0,(LPARAM)buf);
+    SendMessage(hwndCombo,CB_SETITEMDATA,idx,x);
+    if (x == sel) SendMessage(hwndCombo,CB_SETCURSEL,idx,0);
+  }
+  if (allowmono) for (int x = 0; x < g_config_num_outputs; x ++)
+  {
+    snprintf(buf,sizeof(buf),fmt1,x+1);
+    int idx = (int)SendMessage(hwndCombo,CB_ADDSTRING,0,(LPARAM)buf);
+    SendMessage(hwndCombo,CB_SETITEMDATA,idx,x|1024);
+    if ((1024|x) == sel) SendMessage(hwndCombo,CB_SETCURSEL,idx,0);
+  }
+}
+
 static int g_lchan_sz;
 static int g_min_lchan_sz;
 static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -985,6 +1091,14 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
   static int cap_mode;
   static int cap_spos;
   static WDL_WndSizer resize;
+  static const struct { int id; const char *str; } s_accesslist[] = {
+    // !WANT_LOCALIZE_STRINGS_BEGIN:reaninjam_access
+    { IDC_METROOUT, "Metronome output" },
+    { IDC_CHATDISP, "Chat log" },
+    { IDC_CHATENT, "Chat input" },
+    { IDC_CHATOK, "Send chat text" },
+    // !WANT_LOCALIZE_STRINGS_END
+  };
   switch (uMsg)
   {
     case WM_CTLCOLOREDIT:
@@ -996,6 +1110,9 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
       return SendMessage(GetMainHwnd(),uMsg,wParam,lParam);;
     case WM_INITDIALOG:
       {
+        if (SetWindowAccessibilityString)
+          for (int x = 0; x < (int)(sizeof(s_accesslist)/sizeof(s_accesslist[0])); x++)
+            SetWindowAccessibilityString(GetDlgItem(hwndDlg,s_accesslist[x].id),__localizeFunc(s_accesslist[x].str,"reaninjam_access",0),0);
         s_want_sync=false;
 
       #ifdef _WIN32
@@ -1009,7 +1126,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
           HMENU menu=LoadMenu(g_hInst,MAKEINTRESOURCE(IDR_MENU1));
           SetMenu(hwndDlg,menu);
 #ifdef __APPLE__
-          SetDlgItemText(hwndDlg,IDC_CHATLBL,"Chat (Opt+T to focus):");
+          SetDlgItemText(hwndDlg,IDC_CHATLBL,__LOCALIZE("Chat (Opt+T to focus):","reaninjam"));
 
           HMENU normalFirst=GetMenu(GetMainHwnd());
           if (normalFirst) normalFirst=GetSubMenu(normalFirst,0);
@@ -1017,31 +1134,14 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
           if (nm)
           {
             MENUITEMINFO mi={sizeof(mi),MIIM_STATE|MIIM_SUBMENU|MIIM_TYPE,MFT_STRING,0,0,nm,NULL,NULL,0,(char*)"REAPER"};
-            InsertMenuItem(menu,0,TRUE,&mi);           
+            InsertMenuItem(menu,0,TRUE,&mi);
           }
-          SetMenuItemModifier(menu,ID_FILE_CONNECT,MF_BYCOMMAND,'O',FCONTROL);
-          SetMenuItemModifier(menu,ID_FILE_DISCONNECT,MF_BYCOMMAND,'D',FCONTROL);
           SetMenuItemModifier(menu,ID_OPTIONS_PREFERENCES,MF_BYCOMMAND,',',FCONTROL);
-
-          SetMenuItemModifier(menu,IDC_MASTERMUTE,MF_BYCOMMAND,'M',FSHIFT|FCONTROL);
-          SetMenuItemModifier(menu,IDC_METROMUTE,MF_BYCOMMAND,'M',FCONTROL);
-
-          SetMenuItemModifier(menu,IDC_MUTE,MF_BYCOMMAND,'M',FALT);
-          SetMenuItemModifier(menu,IDC_SOLO,MF_BYCOMMAND,'S',FALT);
-          SetMenuItemModifier(menu,IDC_REMOVE,MF_BYCOMMAND,'D',FSHIFT|FCONTROL);
-          SetMenuItemModifier(menu,IDC_ADDCH,MF_BYCOMMAND,'N',FSHIFT|FCONTROL);
-          for (int x=0;x<MAX_CHANNELS_MENU;x++)
-          {
-            SetMenuItemModifier(menu,ID_LOCAL_CHANNEL_1+x,MF_BYCOMMAND,VK_F1 + x,0);
-            SetMenuItemModifier(menu,ID_REMOTE_USER_1+x,MF_BYCOMMAND,VK_F1 + x,FSHIFT);
-            SetMenuItemModifier(menu,ID_REMOTE_USER_CHANNEL_1+x,MF_BYCOMMAND,VK_F1 + x,FSHIFT|FCONTROL);
-          }
 #endif
-        } 
+        }
       #endif
         GetWindowRect(hwndDlg,&s_init_r);
         if (s_init_r.bottom < s_init_r.top) SWAP(s_init_r.top,s_init_r.bottom,int);
-        
 
         g_hwnd=hwndDlg;
 
@@ -1060,64 +1160,74 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         resize.init_item(IDC_MASTERMUTE, 0.8f,  0.0,  0.8f,  0.0);
         resize.init_item(IDC_METROMUTE,  0.8f,  0.0,  0.8f,  0.0);
         resize.init_item(IDC_MASTERVU,   0.8f,  0.0,  1.0f,  0.0);
-        
-               
+        resize.init_item(IDC_METROOUTLBL,  0.8f,  0.0,  0.8f,  0.0);
+        resize.init_item(IDC_METROOUT,  0.8f,  0.0,  1.0f,  0.0);
+
+
         resize.init_item(IDC_DIV1,        0.0,  0.0,  1.0f,  0.0);
         resize.init_item(IDC_DIV3,        0.0,  0.0,  1.0f,  0.0);
-        
+
         resize.init_item(IDC_INTERVALPOS, 0.0,  1.0,  1.0f,  1.0);
-        
+
         const float loc_ratio = 0.0f;
         resize.init_item(IDC_CHATLBL,     0.0f, loc_ratio,  0.0f,  loc_ratio);
 
         resize.init_item(IDC_CHATDISP,     0.0f, loc_ratio,  1.0f,  1.0f);
         resize.init_item(IDC_CHATENT,      0.0f, 1.0f,  1.0f,  1.0f);
         resize.init_item(IDC_CHATOK, 1,1,1,1);
-        
+
 
         resize.init_item(IDC_LOCRECT,     0.0f, 0.0f,  1.0f,  loc_ratio);
         resize.init_item(IDC_LOCGRP,     0.0f, 0.0f,  0.0f,  0.0f);
-        
-        resize.init_item(IDC_REMOTERECT,  1.0f, 0.0f,  1.0f,  1.0f);      
-        resize.init_item(IDC_DIV2,        0.0,  loc_ratio,  1.0f,  loc_ratio);
-        resize.init_item(IDC_REMGRP,  1.0f, 0.0f,  1.0f,  0.0f);      
 
-        g_config_appear=GetPrivateProfileInt(CONFSEC, "config_appear", g_config_appear, g_ini_file.Get());
-        g_config_audio_outputs=GetPrivateProfileInt(CONFSEC,"config_audio_outputs", g_config_audio_outputs,g_ini_file.Get());
-        //g_config_sync=GetPrivateProfileInt(CONFSEC, "config_sync", g_config_sync, g_ini_file.Get());
+        resize.init_item(IDC_REMOTERECT,  1.0f, 0.0f,  1.0f,  1.0f);
+        resize.init_item(IDC_DIV2,        0.0,  loc_ratio,  1.0f,  loc_ratio);
+        resize.init_item(IDC_REMGRP,  1.0f, 0.0f,  1.0f,  0.0f);
+
+        int x = GetPrivateProfileInt(CONFSEC, "num_ins", g_config_num_inputs, g_ini_file.Get());
+        g_config_num_inputs = wdl_clamp(x,2,MAX_INPUTS);
+        x = GetPrivateProfileInt(CONFSEC, "num_outs", g_config_num_outputs, g_ini_file.Get());
+        g_config_num_outputs = wdl_clamp(x,2,MAX_OUTPUTS);
+        g_client->config_remote_autochan_nch = g_config_num_outputs;
+
+        int metro_out = GetPrivateProfileInt(CONFSEC,"metroout",0,g_ini_file.Get());
+        g_client->SetMetronomeChannel(metro_out);
+        PopulateOutputCombo(GetDlgItem(hwndDlg,IDC_METROOUT), metro_out);
+
+        g_client->config_remote_autochan = GetPrivateProfileInt(CONFSEC,"remote_autochan",
+            g_client->config_remote_autochan,g_ini_file.Get());
+        g_config_appear = GetPrivateProfileInt(CONFSEC, "config_appear", g_config_appear, g_ini_file.Get());
 
         char tmp[512];
-//        SendDlgItemMessage(hwndDlg,IDC_MASTERVOL,TBM_SETRANGE,FALSE,MAKELONG(0,100));
-        SendDlgItemMessage(hwndDlg,IDC_MASTERVOL,TBM_SETTIC,FALSE,-1);       
+        SendDlgItemMessage(hwndDlg,IDC_MASTERVOL,TBM_SETTIC,FALSE,-1);
         GetPrivateProfileString(CONFSEC,"mastervol","1.0",tmp,sizeof(tmp),g_ini_file.Get());
         g_client->config_mastervolume=(float)atof(tmp);
         SendDlgItemMessage(hwndDlg,IDC_MASTERVOL,TBM_SETPOS,TRUE,(LPARAM)DB2SLIDER(VAL2DB(g_client->config_mastervolume)));
-        SendDlgItemMessage(hwndDlg,IDC_MASTERVOL,WM_USER+9999,1,(LPARAM)"Master volume");
+        SendDlgItemMessage(hwndDlg,IDC_MASTERVOL,WM_USER+9999,1,(LPARAM)__LOCALIZE("Master volume","reaninjam_access"));
 
-//        SendDlgItemMessage(hwndDlg,IDC_METROVOL,TBM_SETRANGE,FALSE,MAKELONG(0,100));
-        SendDlgItemMessage(hwndDlg,IDC_METROVOL,TBM_SETTIC,FALSE,-1);       
+        SendDlgItemMessage(hwndDlg,IDC_METROVOL,TBM_SETTIC,FALSE,-1);
         GetPrivateProfileString(CONFSEC,"metrovol","0.5",tmp,sizeof(tmp),g_ini_file.Get());
         g_client->config_metronome=(float)atof(tmp);
         SendDlgItemMessage(hwndDlg,IDC_METROVOL,TBM_SETPOS,TRUE,(LPARAM)DB2SLIDER(VAL2DB(g_client->config_metronome)));
-        SendDlgItemMessage(hwndDlg,IDC_METROVOL,WM_USER+9999,1,(LPARAM)"Metronome volume");
+        SendDlgItemMessage(hwndDlg,IDC_METROVOL,WM_USER+9999,1,(LPARAM)__LOCALIZE("Metronome volume","reaninjam_access"));
 
         SendDlgItemMessage(hwndDlg,IDC_MASTERPAN,TBM_SETRANGE,FALSE,MAKELONG(0,100));
-        SendDlgItemMessage(hwndDlg,IDC_MASTERPAN,TBM_SETTIC,FALSE,50);       
+        SendDlgItemMessage(hwndDlg,IDC_MASTERPAN,TBM_SETTIC,FALSE,50);
         GetPrivateProfileString(CONFSEC,"masterpan","0.0",tmp,sizeof(tmp),g_ini_file.Get());
         g_client->config_masterpan=(float)atof(tmp);
         int t=(int)(g_client->config_masterpan*50.0) + 50;
         if (t < 0) t=0; else if (t > 100)t=100;
         SendDlgItemMessage(hwndDlg,IDC_MASTERPAN,TBM_SETPOS,TRUE,t);
-        SendDlgItemMessage(hwndDlg,IDC_MASTERPAN,WM_USER+9999,1,(LPARAM)"Master pan");
+        SendDlgItemMessage(hwndDlg,IDC_MASTERPAN,WM_USER+9999,1,(LPARAM)__LOCALIZE("Master pan","reaninjam_access"));
 
         SendDlgItemMessage(hwndDlg,IDC_METROPAN,TBM_SETRANGE,FALSE,MAKELONG(0,100));
-        SendDlgItemMessage(hwndDlg,IDC_METROPAN,TBM_SETTIC,FALSE,50);       
+        SendDlgItemMessage(hwndDlg,IDC_METROPAN,TBM_SETTIC,FALSE,50);
         GetPrivateProfileString(CONFSEC,"metropan","0.0",tmp,sizeof(tmp),g_ini_file.Get());
         g_client->config_metronome_pan=(float)atof(tmp);
         t=(int)(g_client->config_metronome_pan*50.0) + 50;
         if (t < 0) t=0; else if (t > 100)t=100;
         SendDlgItemMessage(hwndDlg,IDC_METROPAN,TBM_SETPOS,TRUE,t);
-        SendDlgItemMessage(hwndDlg,IDC_METROPAN,WM_USER+9999,1,(LPARAM)"Metronome pan");
+        SendDlgItemMessage(hwndDlg,IDC_METROPAN,WM_USER+9999,1,(LPARAM)__LOCALIZE("Metronome pan","reaninjam_access"));
 
         if (GetPrivateProfileInt(CONFSEC,"mastermute",0,g_ini_file.Get()))
         {
@@ -1128,16 +1238,20 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
           g_client->config_metronome_mute=true;
         }
         SendDlgItemMessage(hwndDlg,IDC_METROMUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(g_client->config_metronome_mute?"track_mute_on":"track_mute_off"));
-        SendDlgItemMessage(hwndDlg,IDC_METROMUTE,WM_USER+0x300,0xbeef,(LPARAM)(g_client->config_metronome_mute?"Unmute metronome":"Mute metronome"));
+        SendDlgItemMessage(hwndDlg,IDC_METROMUTE,WM_USER+0x300,0xbeef,
+            (LPARAM)(g_client->config_metronome_mute?__LOCALIZE("Unmute metronome","reaninjam"):
+              __LOCALIZE("Mute metronome","reaninjam")));
         SendDlgItemMessage(hwndDlg,IDC_MASTERMUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(g_client->config_mastermute?"track_mute_on":"track_mute_off"));
-        SendDlgItemMessage(hwndDlg,IDC_MASTERMUTE,WM_USER+0x300,0xbeef,(LPARAM)(g_client->config_mastermute?"Unmute master":"Mute master"));
+        SendDlgItemMessage(hwndDlg,IDC_MASTERMUTE,WM_USER+0x300,0xbeef,
+            (LPARAM)(g_client->config_mastermute?__LOCALIZE("Unmute master","reaninjam"):
+              __LOCALIZE("Mute master","reaninjam")));
 
         updateMasterControlLabels(hwndDlg);
 
         m_locwnd=CreateDialog(g_hInst,MAKEINTRESOURCE(IDD_EMPTY_SCROLL),hwndDlg,LocalOuterChannelListProc);
         m_remwnd=CreateDialog(g_hInst,MAKEINTRESOURCE(IDD_EMPTY_SCROLL),hwndDlg,RemoteOuterChannelListProc);
-        
-     
+
+
         // initialize local channels from config
         {
           int cnt=GetPrivateProfileInt(CONFSEC,"lc_cnt",-1,g_ini_file.Get());
@@ -1145,7 +1259,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
           if (cnt < 0)
           {
             // add a default channel
-            g_client->SetLocalChannelInfo(0,"default channel",true,1024,false,0,true,true);
+            g_client->SetLocalChannelInfo(0,__LOCALIZE("default channel","reaninjam"),true,1024,false,0,true,true);
             SendMessage(m_locwnd,WM_LCUSER_ADDCHILD,0,0);
           }
           for (x = 0; x < cnt; x ++)
@@ -1171,9 +1285,9 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
               const char *name=NULL;
               if (ch >= 0 && ch <= MAX_LOCAL_CHANNELS) for (n = 1; n < lp.getnumtokens()-1; n += 2)
               {
-                switch (lp.gettoken_enum(n,"source\0bc\0mute\0solo\0volume\0pan\0jesus\0name\0flag\0"))
+                switch (lp.gettoken_enum(n,"source\0bc\0mute\0solo\0volume\0pan\0jesus\0name\0flag\0outidx\0br\0"))
                 {
-                  case 0: // source 
+                  case 0: // source
                     {
                       g_client->SetLocalChannelInfo(ch,NULL,true,lp.gettoken_int(n+1),false,0,false,false);
                     }
@@ -1206,6 +1320,15 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
                   case 8: //flag
                     g_client->SetLocalChannelInfo(ch,NULL,false,0,false,0,false,false,false,0,true,lp.gettoken_int(n+1));
                   break;
+                  case 9: //outidx
+                    {
+                      int v = lp.gettoken_int(n+1);
+                      if (v>=0)
+                        g_client->SetLocalChannelInfo(ch,NULL,false,0,false,0,false,false,true,v,false,0);
+                    }
+                  break;
+                  case 10: // br
+                    g_client->SetLocalChannelInfo(ch,NULL,false,0,true,lp.gettoken_int(n+1),false,false,false,0,false,0);
                   default:
                   break;
                 }
@@ -1228,7 +1351,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
           if (GetWindowDPIScaling)
             g_min_lchan_sz = g_min_lchan_sz * 256 / GetWindowDPIScaling(hwndDlg);
 
-          g_lchan_sz=GetPrivateProfileInt(CONFSEC,"lchansz",g_lchan_sz,g_ini_file.Get());          
+          g_lchan_sz=GetPrivateProfileInt(CONFSEC,"lchansz",g_lchan_sz,g_ini_file.Get());
           if (g_lchan_sz < g_min_lchan_sz)
             g_lchan_sz = g_min_lchan_sz;
         }
@@ -1245,14 +1368,14 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         g_last_wndpos.top = GetPrivateProfileInt(CONFSEC,"wnd_y",0,g_ini_file.Get());
         g_last_wndpos.right = g_last_wndpos.left+GetPrivateProfileInt(CONFSEC,"wnd_w",640,g_ini_file.Get());
         g_last_wndpos.bottom = g_last_wndpos.top+GetPrivateProfileInt(CONFSEC,"wnd_h",480,g_ini_file.Get());
-        
+
         if (g_last_wndpos.top || g_last_wndpos.left || g_last_wndpos.right || g_last_wndpos.bottom)
         {
           EnsureNotCompletelyOffscreen(&g_last_wndpos);
 
           SetWindowPos(hwndDlg,NULL,g_last_wndpos.left,g_last_wndpos.top,g_last_wndpos.right-g_last_wndpos.left,g_last_wndpos.bottom-g_last_wndpos.top,SWP_NOZORDER);
         }
-        else 
+        else
         {
           GetWindowRect(hwndDlg,&g_last_wndpos);
           if (g_last_wndpos.bottom < g_last_wndpos.top) SWAP(g_last_wndpos.bottom,g_last_wndpos.top,int);
@@ -1263,7 +1386,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         else if (ws < 0) ShowWindow(hwndDlg,SW_SHOWMINIMIZED);
         #endif
         else ShowWindow(hwndDlg,SW_SHOW);
-     
+
         SetTimer(hwndDlg,1,10,NULL);
 
         unsigned id;
@@ -1281,7 +1404,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         if (!in_t)
         {
           const bool do_slow_things = (cycle_cnt++%5)==0;
-          in_t=1;          
+          in_t=1;
 
           licenseRun(hwndDlg);
 
@@ -1306,16 +1429,16 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
             if (ns == NJClient::NJC_STATUS_OK)
             {
-              g_last_status.Set("Status: Connected to ");
+              g_last_status.Set(__LOCALIZE("Status: Connected to ","reaninjam"));
               g_last_status.Append(g_client->GetHostName());
-              g_last_status.Append(" as ");
+              g_last_status.Append(__LOCALIZE(" as ","reaninjam"));
               g_last_status.Append(g_client->GetUser());
 
               InvalidateRect(GetDlgItem(hwndDlg,IDC_INTERVALPOS),NULL,FALSE);
             }
             else if (errstr.Get()[0])
             {
-              g_last_status.Set("Status: ");
+              g_last_status.Set(__LOCALIZE("Status: ","reaninjam"));
               g_last_status.Append(errstr.Get());
               InvalidateRect(GetDlgItem(hwndDlg,IDC_INTERVALPOS),NULL,FALSE);
             }
@@ -1323,21 +1446,24 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
             {
               if (ns == NJClient::NJC_STATUS_DISCONNECTED)
               {
-                g_last_status.Set("Status: disconnected from host.");
+                g_last_status.Set(__LOCALIZE("Status: disconnected from host.","reaninjam"));
                 InvalidateRect(GetDlgItem(hwndDlg,IDC_INTERVALPOS),NULL,FALSE);
-                MessageBox(g_hwnd,"Disconnected from host!", "NINJAM Notice", MB_OK);
+                MessageBox(g_hwnd,__LOCALIZE("Disconnected from host!","reaninjam"),
+                    __LOCALIZE("NINJAM Notice","reaninjam"), MB_OK);
               }
               if (ns == NJClient::NJC_STATUS_INVALIDAUTH)
               {
-                g_last_status.Set("Status: invalid authentication info.");
+                g_last_status.Set(__LOCALIZE("Status: invalid authentication info.","reaninjam"));
                 InvalidateRect(GetDlgItem(hwndDlg,IDC_INTERVALPOS),NULL,FALSE);
-                MessageBox(g_hwnd,"Error connecting: invalid authentication information!", "NINJAM error", MB_OK);
+                MessageBox(g_hwnd,__LOCALIZE("Error connecting: invalid authentication information!","reaninjam"),
+                    __LOCALIZE("NINJAM Error","reaninjam"), MB_OK);
               }
               if (ns == NJClient::NJC_STATUS_CANTCONNECT)
               {
-                g_last_status.Set("Status: can't connect to host.");
+                g_last_status.Set(__LOCALIZE("Status: can't connect to host.","reaninjam"));
                 InvalidateRect(GetDlgItem(hwndDlg,IDC_INTERVALPOS),NULL,FALSE);
-                MessageBox(g_hwnd,"Error connecting: can't connect to host!", "NINJAM error", MB_OK);
+                MessageBox(g_hwnd,__LOCALIZE("Error connecting: can't connect to host!","reaninjam"),
+                    __LOCALIZE("NINJAM Error","reaninjam"), MB_OK);
               }
             }
           }
@@ -1356,9 +1482,8 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
               intp=-1;
             }
 
-            int ival=(int) floor(VAL2DB(g_client->GetOutputPeak(0))*10.0);
-            int ival2=(int) floor(VAL2DB(g_client->GetOutputPeak(1))*10.0);
-            SendDlgItemMessage(hwndDlg,IDC_MASTERVU,WM_USER+1010,ival,ival2);
+            double p[2] = { VAL2DB(g_client->GetOutputPeak(0)), VAL2DB(g_client->GetOutputPeak(1)) };
+            SendDlgItemMessage(hwndDlg, IDC_MASTERVU, WM_USER+1011, 0, (LPARAM)p);
 
             if (intl != last_interval_len || last_bpm_i != bpm || intp != last_interval_pos)
             {
@@ -1403,7 +1528,8 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         RECT init_r = s_init_r;
         resize.sizer_to_dpi_rect(&init_r);
         LPMINMAXINFO p=(LPMINMAXINFO)lParam;
-        p->ptMinTrackSize.x = init_r.right-init_r.left;
+        p->ptMinTrackSize.x = (init_r.right-init_r.left);
+        p->ptMinTrackSize.x += p->ptMinTrackSize.x/24;
         p->ptMinTrackSize.y = (init_r.bottom-init_r.top)*2/3;
       }
     return 0;
@@ -1444,12 +1570,12 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         RECT r;
         GetWindowRect(GetDlgItem(hwndDlg,IDC_DIV2),&r);
          if (r.bottom < r.top) SWAP(r.bottom,r.top,int);
-        if (p.x >= r.left && p.x <= r.right && 
+        if (p.x >= r.left && p.x <= r.right &&
             p.y >= r.top - 4 && p.y <= r.bottom + 4)
         {
           SetCursor(LoadCursor(NULL,IDC_SIZENS));
           return 1;
-        } 
+        }
       }
     return 0;
     case WM_LBUTTONDOWN:
@@ -1460,7 +1586,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         GetWindowRect(GetDlgItem(hwndDlg,IDC_DIV2),&r);
         if (r.bottom < r.top) SWAP(r.bottom,r.top,int);
 
-        if (p.x >= r.left && p.x <= r.right && 
+        if (p.x >= r.left && p.x <= r.right &&
             p.y >= r.top - 4 && p.y <= r.bottom + 4)
         {
           SetCapture(hwndDlg);
@@ -1508,7 +1634,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
       }
       if (uMsg != WM_SIZE && wParam == 100) return 0;
 
-      if (wParam != SIZE_MINIMIZED) 
+      if (wParam != SIZE_MINIMIZED)
       {
         RECT orig_rect=resize.get_orig_rect();
         int bm=0;
@@ -1552,21 +1678,22 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         if (m_locwnd) SendMessage(m_locwnd,WM_LCUSER_RESIZE,0,0);
         if (m_remwnd) SendMessage(m_remwnd,WM_LCUSER_RESIZE,0,0);
       }
-      if (wParam == SIZE_MINIMIZED || wParam == SIZE_MAXIMIZED) 
+      if (wParam == SIZE_MINIMIZED || wParam == SIZE_MAXIMIZED)
       {
         if (wParam == SIZE_MINIMIZED) g_last_wndpos_state=-1;
         else if (wParam == SIZE_MAXIMIZED) g_last_wndpos_state=1;
         return 0;
       }
+      WDL_FALLTHROUGH;
     case WM_MOVE:
       {
-      
+
     #ifdef _WIN32
         WINDOWPLACEMENT wp={sizeof(wp)};
         GetWindowPlacement(hwndDlg,&wp);
         if (wp.showCmd == SW_SHOWMAXIMIZED) g_last_wndpos_state=1;
         else if (wp.showCmd == SW_MINIMIZE || wp.showCmd == SW_SHOWMINIMIZED) g_last_wndpos_state=-1;
-        else 
+        else
         {
           if (IsWindowVisible(hwndDlg) && !IsIconic(hwndDlg) && !IsZoomed(hwndDlg))
     #endif
@@ -1583,27 +1710,27 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
       {
         double pos=(double)SendMessage((HWND)lParam,TBM_GETPOS,0,0);
 
-		    if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_MASTERVOL))
+        if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_MASTERVOL))
         {
           double v=SLIDER2DB(pos);
           if (fabs(v- -6.0) < 0.5) v=-6.0;
           else if (v < -115.0) v=-1000.0;
           g_client->config_mastervolume=(float)DB2VAL(v);
         }
-		    else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_METROVOL))
+        else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_METROVOL))
         {
           double v=SLIDER2DB(pos);
           if (fabs(v- -6.0) < 0.5) v=-6.0;
           else if (v < -115.0) v=-1000.0;
           g_client->config_metronome=(float)DB2VAL(v);
         }
-		    else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_MASTERPAN))
+        else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_MASTERPAN))
         {
           pos=(pos-50.0)/50.0;
           if (fabs(pos) < 0.08) pos=0.0;
           g_client->config_masterpan=(float) pos;
         }
-		    else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_METROPAN))
+        else if ((HWND) lParam == GetDlgItem(hwndDlg,IDC_METROPAN))
         {
           pos=(pos-50.0)/50.0;
           if (fabs(pos) < 0.08) pos=0.0;
@@ -1621,7 +1748,9 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         case IDC_MASTERMUTE:
           g_client->config_mastermute=!g_client->config_mastermute;
           SendDlgItemMessage(hwndDlg,IDC_MASTERMUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(g_client->config_mastermute?"track_mute_on":"track_mute_off"));
-          SendDlgItemMessage(hwndDlg,IDC_MASTERMUTE,WM_USER+0x300,0xbeef,(LPARAM)(g_client->config_mastermute?"Unmute master":"Mute master"));
+          SendDlgItemMessage(hwndDlg,IDC_MASTERMUTE,WM_USER+0x300,0xbeef,
+            (LPARAM)(g_client->config_mastermute?__LOCALIZE("Unmute master","reaninjam"):
+              __LOCALIZE("Mute master","reaninjam")));
         break;
         case IDC_MASTERVOLLBL:
           if (HIWORD(wParam) == STN_DBLCLK) {
@@ -1658,7 +1787,27 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         case IDC_METROMUTE:
           g_client->config_metronome_mute =!g_client->config_metronome_mute;
           SendDlgItemMessage(hwndDlg,IDC_METROMUTE,BM_SETIMAGE,IMAGE_ICON|0x8000,(LPARAM)GetIconThemePointer(g_client->config_metronome_mute?"track_mute_on":"track_mute_off"));
-          SendDlgItemMessage(hwndDlg,IDC_METROMUTE,WM_USER+0x300,0xbeef,(LPARAM)(g_client->config_metronome_mute?"Unmute metronome":"Mute metronome"));
+          SendDlgItemMessage(hwndDlg,IDC_METROMUTE,WM_USER+0x300,0xbeef,
+            (LPARAM)(g_client->config_metronome_mute?__LOCALIZE("Unmute metronome","reaninjam"):
+              __LOCALIZE("Mute metronome","reaninjam")));
+
+        break;
+        case IDC_METROOUT:
+          if (HIWORD(wParam) == CBN_SELCHANGE)
+          {
+            int a = (int)SendMessage((HWND)lParam, CB_GETCURSEL,0,0);
+            if (a>=0)
+            {
+              int idx = (int)SendMessage((HWND)lParam,CB_GETITEMDATA,a,0);
+              if (idx>=0 && idx< 2048)
+              {
+                g_client->SetMetronomeChannel(idx);
+                char buf[64];
+                snprintf(buf,sizeof(buf),"%d",idx);
+                WritePrivateProfileString(CONFSEC,"metroout", buf, g_ini_file.Get());
+              }
+            }
+          }
         break;
         case IDC_CONNECT:
           if (g_client->GetStatus() != 0)
@@ -1666,11 +1815,11 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
             SendMessage(hwndDlg,WM_COMMAND,ID_FILE_CONNECT,0);
             return 0;
           }
-            
+
            // fall through
         case ID_FILE_DISCONNECT:
           do_disconnect();
-          g_last_status.Set("Status: disconnected manually");
+          g_last_status.Set(__LOCALIZE("Status: disconnected manually","reaninjam"));
           InvalidateRect(GetDlgItem(hwndDlg,IDC_INTERVALPOS),NULL,FALSE);
         break;
         case ID_FILE_CONNECT:
@@ -1691,14 +1840,14 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
           int check=(s_want_sync ? MF_CHECKED : 0);
           int gray=(last_bpm_i > 0 && last_interval_len > 0 ? 0 : MF_GRAYED);
           InsertMenu(hm, hpos++, MF_BYPOSITION|MF_STRING|check|gray, IDC_SYNCATLOOP,
-            "Start REAPER playback on next loop");
+            __LOCALIZE("Start REAPER playback on next loop","reaninjam"));
           InsertMenu(hm, hpos++, MF_BYPOSITION|MF_SEPARATOR, 0, NULL);
           InsertMenu(hm, hpos++, MF_BYPOSITION|MF_STRING|gray, IDC_MATCHBPM_SETLOOP,
-            "Set project tempo and loop at project start");
+            __LOCALIZE("Set project tempo and loop at project start","reaninjam"));
           InsertMenu(hm, hpos++, MF_BYPOSITION|MF_STRING|gray, IDC_SETBPM,
-            "Set project tempo");
+            __LOCALIZE("Set project tempo","reaninjam"));
           InsertMenu(hm, hpos++, MF_BYPOSITION|MF_STRING|gray, IDC_SETLOOP,
-            "Set loop at edit cursor");
+            __LOCALIZE("Set loop at edit cursor","reaninjam"));
 
           RECT r;
           GetWindowRect(GetDlgItem(hwndDlg, IDC_SYNC), &r);
@@ -1796,7 +1945,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
                     }
                     else
                     {
-                      chat_addline("","error: /msg requires a username and a message.");
+                      chat_addline("",__LOCALIZE("error: /msg requires a username and a message.","reaninjam"));
                     }
                   }
                   else
@@ -1818,7 +1967,7 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
               }
               else
               {
-                chat_addline("","error: not connected to a server.");
+                chat_addline("",__LOCALIZE("error: not connected to a server.","reaninjam"));
               }
             }
             SetDlgItemText(hwndDlg,IDC_CHATENT,"");
@@ -1889,16 +2038,6 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
             }
           }
         break;
-        case ID_METRONOME_CH5:
-        case ID_LOCAL_CH34:
-          {
-            g_config_audio_outputs ^= (LOWORD(wParam) == ID_METRONOME_CH5 ? 2 : 1);
-
-            char buf[64];
-            snprintf(buf,sizeof(buf),"%d", g_config_audio_outputs);
-            WritePrivateProfileString(CONFSEC,"config_audio_outputs", buf, g_ini_file.Get());
-          }
-        break;
 
       }
     break;
@@ -1906,10 +2045,10 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
       {
         if (g_vst_object)
           ShowWindow(hwndDlg,SW_HIDE);
-        else 
+        else
           DestroyWindow(hwndDlg);
       }
-    break;  
+    break;
     #ifdef _WIN32
     case WM_ENDSESSION:
     #endif
@@ -1937,29 +2076,23 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
           int sch=0;
           bool bc=0;
-          void *has_jesus=0;
-          char *lcn;
           float v=0.0f,p=0.0f;
           bool m=0,s=0;
           int flag=0;
-      
-          lcn=g_client->GetLocalChannelInfo(a,&sch,NULL,&bc,NULL,&flag);
-          g_client->GetLocalChannelMonitoring(a,&v,&p,&m,&s);
-          g_client->GetLocalChannelProcessor(a,NULL,&has_jesus);
+          int chidx=0;
+          int br=64;
 
-          char *ptr=lcn;
+          const char *lcn=g_client->GetLocalChannelInfo(a,&sch,&br,&bc,&chidx,&flag);
+          g_client->GetLocalChannelMonitoring(a,&v,&p,&m,&s);
+
+          char *ptr=(char*)lcn;
           while (*ptr)
           {
             if (*ptr == '`') *ptr='\'';
             ptr++;
           }
-          if (strlen(lcn) > 128) lcn[127]=0;
           char buf[4096];
-          WDL_String sstr;
-          sprintf(buf,"%d",sch);
-          sstr.Set(buf);           
-          
-          snprintf(buf,sizeof(buf),"%d source '%s' bc %d mute %d solo %d volume %f pan %f jesus %d flag %d name `%s`",a,sstr.Get(),bc,m,s,v,p,!!has_jesus,flag,lcn);
+          snprintf(buf,sizeof(buf),"%d source '%d' bc %d mute %d solo %d volume %f pan %f jesus %d flag %d outidx %d br %d name `%.127s`",a,sch,bc,m,s,v,p,0,flag,chidx,br, lcn);
           char specbuf[64];
           sprintf(specbuf,"lc_%d",cnt++);
           WritePrivateProfileString(CONFSEC,specbuf,buf,g_ini_file.Get());
@@ -1971,12 +2104,12 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
       {
         char buf[256];
-        
+
         sprintf(buf,"%d",g_last_wndpos_state);
         WritePrivateProfileString(CONFSEC,"wnd_state",buf,g_ini_file.Get());
         sprintf(buf,"%d",g_lchan_sz);
         WritePrivateProfileString(CONFSEC,"lchansz",buf,g_ini_file.Get());
-        
+
 
         sprintf(buf,"%d",(int)g_last_wndpos.left);
         WritePrivateProfileString(CONFSEC,"wnd_x",buf,g_ini_file.Get());
@@ -2021,6 +2154,10 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
       m_locwnd=m_remwnd=0;
       g_audio_enable=0;
 
+      if (SetWindowAccessibilityString)
+        for (int x = 0; x < (int)(sizeof(s_accesslist)/sizeof(s_accesslist[0])); x++)
+          SetWindowAccessibilityString(GetDlgItem(hwndDlg,s_accesslist[x].id),NULL,0);
+
       JNL::close_socketlib();
       g_hwnd=NULL;
     return 0;
@@ -2047,6 +2184,15 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
         EnableMenuItem(menu, IDC_SOLO, MF_BYCOMMAND|((f&0xff) ? 0 : MF_GRAYED));
         EnableMenuItem(menu, IDC_REMOVE, MF_BYCOMMAND|(f && !(f&0xff00) ? 0 : MF_GRAYED));
 
+        const char *chanstr = __LOCALIZE("Channel","reaninjam");
+        const char *userstr = __LOCALIZE("User","reaninjam");
+#ifdef __APPLE__
+        const char *shiftstr = "Shift+"; // use non-localized, win key names since they will get converted by SWELL anyway
+        const char *ctrlstr = "Ctrl+";
+#else
+        const char *shiftstr = __LOCALIZE("Shift+","kb");
+        const char *ctrlstr = __LOCALIZE("Ctrl+","kb");
+#endif
         for (int x=0;x<MAX_CHANNELS_MENU;x++)
         {
           char buf[512];
@@ -2055,28 +2201,25 @@ static WDL_DLGRET MainProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam
 
           const char *lcn = g_client->GetLocalChannelInfo(x,NULL,NULL,NULL);
 
-          if (lcn && *lcn) snprintf(buf,sizeof(buf),"Channel %s\tF%d",lcn,x+1);
-          else snprintf(buf,sizeof(buf),"Channel %d\tF%d",x+1,x+1);
+          if (lcn && *lcn) snprintf(buf,sizeof(buf),"%s %s\tF%d",chanstr,lcn,x+1);
+          else snprintf(buf,sizeof(buf),"%s %d\tF%d",chanstr,x+1,x+1);
 
           mii.fState = (f == 1+x)?MF_CHECKED:0;
           SetMenuItemInfo(GetMenu(g_hwnd),ID_LOCAL_CHANNEL_1+x,FALSE,&mii);
 
           const char *rn = g_client->GetUserState(x);
-          if (rn && *rn) snprintf(buf,sizeof(buf),"User %s\tShift+F%d",rn,x+1);
-          else snprintf(buf,sizeof(buf),"User %d\tShift+F%d",x+1,x+1);
+          if (rn && *rn) snprintf(buf,sizeof(buf),"%s %s\t%sF%d",userstr,rn,shiftstr,x+1);
+          else snprintf(buf,sizeof(buf),"%s %d\t%sF%d",userstr,x+1,shiftstr,x+1);
 
           mii.fState = (user_sel == 1+x)?MF_CHECKED:0;
           SetMenuItemInfo(GetMenu(g_hwnd),ID_REMOTE_USER_1+x,FALSE,&mii);
 
           const char *rcn = user_sel > 0 ? g_client->GetUserChannelState(user_sel - 1,x) : NULL;
-          if (rcn && *rcn) snprintf(buf,sizeof(buf),"Channel %s\tCtrl+Shift+F%d",rcn,x+1);
-          else snprintf(buf,sizeof(buf),"Channel %d\tCtrl+Shift+F%d",x+1,x+1);
+          if (rcn && *rcn) snprintf(buf,sizeof(buf),"%s %s\t%s%sF%d",chanstr,rcn,ctrlstr,shiftstr,x+1);
+          else snprintf(buf,sizeof(buf),"%s %d\t%s%sF%d",chanstr,x+1,ctrlstr,shiftstr,x+1);
           mii.fState = ((f&0xff00) && (f&0xff) == 1+x)?MF_CHECKED:0;
           SetMenuItemInfo(GetMenu(g_hwnd),ID_REMOTE_USER_CHANNEL_1+x,FALSE,&mii);
         }
-
-        CheckMenuItem(menu,ID_METRONOME_CH5,MF_BYCOMMAND|((g_config_audio_outputs&2)?MF_CHECKED:0));
-        CheckMenuItem(menu,ID_LOCAL_CH34,MF_BYCOMMAND|((g_config_audio_outputs&1)?MF_CHECKED:0));
       }
     return 0;
   }
@@ -2092,7 +2235,11 @@ HWND customControlCreator(HWND parent, const char *cname, int idx, const char *c
   {
     hw=CreateDialog(g_hInst,0,parent,(DLGPROC)ninjamStatusProc);
   }
-  
+  else if (!strcmp(classname,"ninjamdivider"))
+  {
+    hw=CreateDialog(g_hInst,0,parent,(DLGPROC)ninjamDividerProc);
+  }
+
   if (hw)
   {
     SetWindowLong(hw,GWL_ID,idx);
@@ -2100,7 +2247,7 @@ HWND customControlCreator(HWND parent, const char *cname, int idx, const char *c
     ShowWindow(hw,SW_SHOWNA);
     return hw;
   }
-  
+
   return 0;
 }
 
@@ -2173,7 +2320,13 @@ void InitializeInstance()
       WNDCLASS wc={CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS,ninjamStatusProc,};
       wc.lpszClassName="ninjamstatus";
       wc.hInstance=g_hInst;
-      RegisterClass(&wc);        
+      RegisterClass(&wc);
+    }
+    {
+      WNDCLASS wc={CS_HREDRAW|CS_VREDRAW|CS_DBLCLKS,ninjamDividerProc,};
+      wc.lpszClassName="ninjamdivider";
+      wc.hInstance=g_hInst;
+      RegisterClass(&wc);
     }
 #else
     SWELL_RegisterCustomControlCreator(customControlCreator);
@@ -2225,15 +2378,19 @@ void mkvolpanstr(char *str, double vol, double pan)
 
 void mkpanstr(char *str, double pan)
 {
-  if (fabs(pan) < 0.0001) strcpy(str,"center");
-  else sprintf(str,"%d%%%s", (int)fabs(pan*100.0),(pan>0.0 ? "R" : "L"));
+  __LOCALIZE_LCACHE("center","reaninjam",center);
+  __LOCALIZE_LCACHE("R","reaninjam",r);
+  __LOCALIZE_LCACHE("L","reaninjam",l);
+
+  if (fabs(pan) < 0.0001) lstrcpyn_safe(str,center,32);
+  else snprintf(str,32,"%d%%%s", (int)fabs(pan*100.0),(pan>0.0 ? r : l));
 }
 
 void mkvolstr(char *str, double vol)
 {
   double v=VAL2DB(vol);
   if (vol < 0.0000001 || v < -120.0) v=-120.0;
-  snprintf(str,16,"%+2.1fdB",v);   
+  snprintf(str,16,"%+2.1fdB",v);
 }
 
 
@@ -2305,7 +2462,7 @@ HWND getHWNDFromChannel(int chan) // see above
     HWND h = GetWindow(g_remote_channel_wnd,GW_CHILD);
     while (h && maxc--)
     {
-      if (GetWindowLongPtr(h,GWLP_USERDATA) == scan_id) 
+      if (GetWindowLongPtr(h,GWLP_USERDATA) == scan_id)
       {
         return h;
       }

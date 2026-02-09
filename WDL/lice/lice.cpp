@@ -9,6 +9,9 @@
 #ifndef __LICE_CPP_IMPLEMENTED__
 #define __LICE_CPP_IMPLEMENTED__
 
+#ifndef WDL_NO_DEFINE_MINMAX
+#define WDL_NO_DEFINE_MINMAX
+#endif
 #include "lice.h"
 #include <math.h>
 #include <stdio.h> // only included in case we need to debug with sprintf etc
@@ -310,7 +313,7 @@ class _LICE_Template_Blit1 // these controlled by LICE_FAVOR_SIZE_EXTREME
 #endif
   public:
     static void solidBlit(LICE_pixel_chan *dest, int w, int h, 
-                         int ir, int ig, int ib, int ia,
+                         int ir, int ig, int ib, int pxa, int ia,
                          int dest_span
 #ifdef LICE_FAVOR_SIZE_EXTREME
                           , LICE_COMBINEFUNC combFunc
@@ -323,7 +326,7 @@ class _LICE_Template_Blit1 // these controlled by LICE_FAVOR_SIZE_EXTREME
         int n=w;
         while (n--)
         {
-          DOPIX(pout,ir,ig,ib,ia,ia);          
+          DOPIX(pout,ir,ig,ib,pxa,ia);
           pout += sizeof(LICE_pixel)/sizeof(LICE_pixel_chan);
         }
         dest+=dest_span;
@@ -1326,12 +1329,14 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   {
     if (ficurx < 0) // increase dstx, decrease dstw
     {
-      int n = (int)((fidx-1-ficurx)/fidx);
-      dstw-=n;
-      dstx+=n;
-      ficurx+=fidx*n;
+      double n = ceil( - (ficurx/(double)fidx));
+      if (WDL_NOT_NORMALLY(n<0)) return;
+      if (n >= dstw) return;
+      dstw-=(int)n;
+      dstx+=(int)n;
+      ficurx+=fidx*(int)n;
     }
-    if ((ficurx + fidx*(dstw-1)) >= srcbm_w*65536.0)
+    if ((ficurx + fidx*(double)(dstw-1)) >= srcbm_w*65536.0)
     {
       int neww = (int)(((srcbm_w-1)*65536.0 - ficurx)/fidx);
       if (neww < dstw) dstw=neww;
@@ -1346,12 +1351,14 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   {
     if (ficury < 0) // increase dsty, decrease dsth
     {
-      int n = (int) ((fidy-1-ficury)/fidy);
-      dsth-=n;
-      dsty+=n;
-      ficury+=fidy*n;
+      double n = ceil( - (ficury / (double) fidy));
+      if (WDL_NOT_NORMALLY(n<0)) return;
+      if (n >= dsth) return;
+      dsth-=(int)n;
+      dsty+=(int)n;
+      ficury+=fidy*(int)n;
     }
-    if ((ficury + fidy*(dsth-1)) >= srcbm_h*65536.0)
+    if ((ficury + fidy*(double)(dsth-1)) >= srcbm_h*65536.0)
     {
       int newh = (int)(((srcbm_h-1)*65536.0 - ficury)/fidy);
       if (newh < dsth) dsth=newh;
@@ -1370,8 +1377,11 @@ void LICE_ScaledBlit(LICE_IBitmap *dest, LICE_IBitmap *src,
   LICE_pixel_chan *pdest = (LICE_pixel_chan *)dest->getBits();
   if (!psrc || !pdest) return;
 
-  const int srcoffs_x = (int)((ficurx + (fidx<0 ? fidx*dstw : 0))*(1.0/65536.0));
-  const int srcoffs_y = (int)((ficury + (fidy<0 ? fidy*dsth : 0))*(1.0/65536.0));
+  int srcoffs_x = (int)((ficurx + (fidx<0 ? fidx*dstw : 0))*(1.0/65536.0));
+  int srcoffs_y = (int)((ficury + (fidy<0 ? fidy*dsth : 0))*(1.0/65536.0));
+
+  if (srcoffs_x < 0) { if (fidx>=0) return; srcoffs_x=0; }
+  if (srcoffs_y < 0) { if (fidy>=0) return; srcoffs_y=0; }
 
   if (src->isFlipped())
   {
@@ -2164,7 +2174,7 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
   LICE_COMBINEFUNC blitfunc=NULL;      
   #define __LICE__ACTION(comb) blitfunc=comb::doPix;
 #else
-  #define __LICE__ACTION(comb) _LICE_Template_Blit1<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),ia,sp*sizeof(LICE_pixel))
+  #define __LICE__ACTION(comb) _LICE_Template_Blit1<comb>::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color),ia,sp*sizeof(LICE_pixel))
 #endif
 
     // we use __LICE_ACTION_NOSRCALPHA even though __LICE_ACTION_CONSTANTALPHA
@@ -2173,7 +2183,7 @@ void LICE_FillRect(LICE_IBitmap *dest, int x, int y, int w, int h, LICE_pixel co
   #undef __LICE__ACTION
 
 #ifdef LICE_FAVOR_SIZE_EXTREME
-  if (blitfunc) _LICE_Template_Blit1::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),ia,sp*sizeof(LICE_pixel),blitfunc);
+  if (blitfunc) _LICE_Template_Blit1::solidBlit((LICE_pixel_chan*)p,w,h,LICE_GETR(color),LICE_GETG(color),LICE_GETB(color),LICE_GETA(color),ia,sp*sizeof(LICE_pixel),blitfunc);
 #endif
 }
 

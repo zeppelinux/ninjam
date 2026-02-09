@@ -19,9 +19,9 @@
 
 /*
 
-  This header provides message-type defines, as well as Message Parser and Builder (mpb_) 
+  This header provides message-type defines, as well as Message Parser and Builder (mpb_)
   classes for constructing and parsing Net_Messages.
- 
+
 */
 
 
@@ -39,7 +39,7 @@
 
 #define MESSAGE_SERVER_AUTH_CHALLENGE 0x00
 
-class mpb_server_auth_challenge 
+class mpb_server_auth_challenge
 {
   public:
     mpb_server_auth_challenge() : server_caps(0), license_agreement(0), protocol_version(0) { memset(challenge,0,sizeof(challenge)); }
@@ -111,7 +111,7 @@ class mpb_server_userinfo_change_notify
     // volume is dB gain, so 0=0dB, 10=1dB, -30=-3 dB, etc
     // flags, &1 = no default subscribe, &2=instamode
     void build_add_rec(int isActive, int channelid, short volume, int pan, int flags, const char *username, const char *chname);
-    int parse_get_rec(int offs, int *isActive, int *channelid, short *volume, int *pan, int *flags, const char **username, const char **chname); // returns offset of next item on success, or <0 if out of items
+    int parse_get_rec(int offs, int *isActive, int *channelid, short *volume, int *pan, int *flags, const char **username, const char **chname); // returns offset of next item on success, or <= 0 if out of items
 
    private:
 
@@ -175,7 +175,7 @@ class mpb_client_auth_user
     int client_caps; // low bit is agreeing to license
     int client_version; // client version, only present if second bit of caps is there
                      // second bit should be set, otherwise server will disconnect anyway.
-    char *username;
+    const char *username;
 };
 
 
@@ -192,7 +192,7 @@ class mpb_client_set_usermask
 
 
     void build_add_rec(const char *username, unsigned int chflags);
-    int parse_get_rec(int offs, const char **username, unsigned int *chflags); // returns offset of next item on success, or <0 if out of items
+    int parse_get_rec(int offs, const char **username, unsigned int *chflags); // returns offset of next item on success, or <= 0 if out of items
 
    private:
 
@@ -214,7 +214,7 @@ class mpb_client_set_channel_info
     // volume is dB gain, so 0=0dB, 10=1dB, -30=-3 dB, etc
     // flags, &1 = no default subscribe, &2=instamode, &4=session mode, 0x80=filler (inactive)
     void build_add_rec(const char *chname, short volume, int pan, int flags);
-    int parse_get_rec(int offs, const char **chname, short *volume, int *pan, int *flags); // returns offset of next item on success, or <0 if out of items
+    int parse_get_rec(int offs, const char **chname, short *volume, int *pan, int *flags); // returns offset of next item on success, or <= 0 if out of items
 
     int mpisize;
 

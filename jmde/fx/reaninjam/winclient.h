@@ -38,6 +38,15 @@
 #include "../../../WDL/win32_utf8.h"
 #include "../../../WDL/win32_hidpi.h" // for mmon SetWindowPos() tweaks
 
+#include "../../reaper_plugin.h"
+#define LOCALIZE_IMPORT_PREFIX "reaninjam_"
+#define LOCALIZE_IMPORT_FORCE_NOCACHE
+#ifdef WANT_LOCALIZE_IMPORT_INCLUDE
+#include "../../localize-import.h"
+#endif
+#include "../../localize.h"
+
+
 extern double (*DB2SLIDER)(double x);
 extern double (*SLIDER2DB)(double y);
 
@@ -52,6 +61,13 @@ extern HINSTANCE g_hInst;
 extern int g_done;
 extern WDL_String g_topic;
 
+#define CONFSEC "ninjam"
+
+#define MAX_INPUTS 128
+#define MAX_OUTPUTS 128
+extern int g_config_num_inputs, g_config_num_outputs;
+
+void PopulateOutputCombo(HWND hwndCombo, int sel, bool allowmono=true);
 
 // locchn.cpp
 WDL_DLGRET LocalOuterChannelListProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -68,5 +84,16 @@ void chatmsg_cb(void *userData, NJClient *inst, const char **parms, int nparms);
 // license.cpp
 int licensecallback(void *userData, const char *licensetext);
 void licenseRun(HWND hwndDlg);
+
+
+extern BOOL  (WINAPI *InitializeCoolSB)(HWND hwnd);
+extern HRESULT (WINAPI *UninitializeCoolSB)(HWND hwnd);
+extern int   (WINAPI *CoolSB_SetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi, BOOL fRedraw);
+extern BOOL (WINAPI *CoolSB_GetScrollInfo)(HWND hwnd, int fnBar, LPSCROLLINFO lpsi);
+extern int (WINAPI *CoolSB_SetScrollPos)(HWND hwnd, int nBar, int nPos, BOOL fRedraw);
+extern int (WINAPI *CoolSB_SetScrollRange)(HWND hwnd, int nBar, int nMinPos, int nMaxPos, BOOL fRedraw);
+extern BOOL (WINAPI *CoolSB_SetMinThumbSize)(HWND hwnd, UINT wBar, UINT size);
+
+extern void (*SetWindowAccessibilityString)(HWND h, const char *, int mode);
 
 #endif//_WINCLIENT_H_

@@ -19,7 +19,7 @@
 
 /*
 
-  This file provides the implementations of the Net_Messsage class, and 
+  This file provides the implementations of the Net_Messsage class, and
   Net_Connection class (handles sending and receiving Net_Messages to
   a JNetLib JNL_Connection).
 
@@ -46,21 +46,21 @@ int Net_Message::parseAddBytes(void *data, int len)
   if (!p) return 0;
   if (len > parseBytesNeeded()) len = parseBytesNeeded();
   memcpy(p+m_parsepos,data,len);
-  m_parsepos+=len; 
+  m_parsepos+=len;
   return len;
 }
 
 int Net_Message::parseMessageHeader(void *data, int len) // returns bytes used, if any (or 0 if more data needed) or -1 if invalid
 {
-	unsigned char *dp=(unsigned char *)data;
+  unsigned char *dp=(unsigned char *)data;
   if (len < 5) return 0;
 
   int type=*dp++;
 
-  int size = *dp++; 
-  size |= ((int)*dp++)<<8; 
-  size |= ((int)*dp++)<<16; 
-  size |= ((int)*dp++)<<24; 
+  int size = *dp++;
+  size |= ((int)*dp++)<<8;
+  size |= ((int)*dp++)<<16;
+  size |= ((int)*dp++)<<24;
   len -= 5;
   if (type == MESSAGE_INVALID || size < 0 || size > NET_MESSAGE_MAX_SIZE) return -1;
 
@@ -74,9 +74,9 @@ int Net_Message::parseMessageHeader(void *data, int len) // returns bytes used, 
 
 int Net_Message::makeMessageHeader(void *data) // makes message header, data should be at least 16 bytes to be safe
 {
-	if (!data) return 0;
+  if (!data) return 0;
 
-	unsigned char *dp=(unsigned char *)data;
+  unsigned char *dp=(unsigned char *)data;
   *dp++ = (unsigned char) m_type;
   int size=get_size();
   *dp++=size&0xff; size>>=8;
@@ -165,7 +165,7 @@ Net_Message *Net_Connection::Run(int *wantsleep)
   Net_Message *retv=0;
 
   // handle receive now
-  if (!m_recvmsg) 
+  if (!m_recvmsg)
   {
     m_recvmsg=new Net_Message;
     m_recvstate=0;
@@ -227,7 +227,7 @@ int Net_Connection::Send(Net_Message *msg)
     msg->addRef();
     if (m_sendq.GetSize() < NET_CON_MAX_MESSAGES*(int)sizeof(Net_Message *))
       m_sendq.Add(&msg,sizeof(Net_Message *));
-    else 
+    else
     {
       m_error=-2;
       msg->releaseRef(); // todo: debug message to log overrun error
@@ -235,7 +235,7 @@ int Net_Connection::Send(Net_Message *msg)
     }
 
 #if 0
-    if (m_con) 
+    if (m_con)
     {
       m_con->run();
 
@@ -284,7 +284,7 @@ int Net_Connection::Send(Net_Message *msg)
 
       m_sendq.Compact();
     }
-  #endif 
+  #endif
 
   }
   return 0;
@@ -297,7 +297,7 @@ int Net_Connection::GetStatus()
 }
 
 Net_Connection::~Net_Connection()
-{ 
+{
   Net_Message **p=(Net_Message **)m_sendq.Get();
   if (p)
   {
@@ -308,16 +308,16 @@ Net_Connection::~Net_Connection()
       p++;
     }
     m_sendq.Advance(m_sendq.Available());
-    
+
   }
 
-  delete m_con; 
+  delete m_con;
   delete m_recvmsg;
 
 }
 
 
-void Net_Connection::Kill(int quick) 
-{ 
-  m_con->close(); 
+void Net_Connection::Kill(int quick)
+{
+  m_con->close();
 }

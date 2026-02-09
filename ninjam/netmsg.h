@@ -19,7 +19,7 @@
 
 /*
 
-  This header provides the declarations for the Net_Messsage class, and 
+  This header provides the declarations for the Net_Messsage class, and
   Net_Connection class (handles sending and receiving Net_Messages to
   a JNetLib JNL_Connection).
 */
@@ -60,9 +60,9 @@ class Net_Message
     void set_type(int type)  { m_type=type; }
     int  get_type() const { return m_type; }
 
-    void set_size(int newsize) 
-    { 
-      m_hb.Resize(newsize); 
+    void set_size(int newsize)
+    {
+      m_hb.Resize(newsize);
       if (m_hb.GetSize() != newsize) m_hb.Resize(0);
     }
     int get_size() const { return m_hb.GetSize(); }
@@ -91,14 +91,14 @@ class Net_Connection
 {
   public:
     Net_Connection() : m_error(0),m_msgsendpos(-1), m_recvstate(0),m_recvmsg(0),m_con(0)
-    { 
+    {
       SetKeepAlive(0);
     }
     ~Net_Connection();
 
-    void attach(JNL_IConnection *con) 
+    void attach(JNL_IConnection *con)
     {
-      m_con=con; 
+      m_con=con;
       if (con)
       {
         SOCKET sock = con->get_socket();

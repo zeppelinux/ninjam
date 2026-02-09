@@ -268,7 +268,7 @@ audioStreamer_CoreAudio::~audioStreamer_CoreAudio()
 int matchlen(const char *sub, const char *pa)
 {
   int l=0;
-  while (*sub && *pa && toupper(*sub) == toupper(*pa)) { sub++; pa++; l++; }
+  while (*sub && *pa && toupper_safe(*sub) == toupper_safe(*pa)) { sub++; pa++; l++; }
   return l;
 }
 

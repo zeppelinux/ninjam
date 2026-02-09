@@ -325,7 +325,7 @@ int User_Connection::OnRunAuth(User_Group *group)
     while (*p)
     {
       char c=*p;
-      if (!isalnum(c) && c != '-' && c != '_' && c != '@' && c != '.') c='_';
+      if (!isalnum_safe(c) && c != '-' && c != '_' && c != '@' && c != '.') c='_';
       *p++=c;
 
       if (!--l) *p=0;
@@ -1475,7 +1475,7 @@ void User_Group::onChatMessage(User_Connection *con, mpb_chat_message *msg)
         }
         else
         {
-          int isbpm=tolower(msg->parms[1][2])=='m';
+          int isbpm=tolower_safe(msg->parms[1][2])=='m';
 
           const char *p=msg->parms[1]+3;
           while (*p == ' ') p++;

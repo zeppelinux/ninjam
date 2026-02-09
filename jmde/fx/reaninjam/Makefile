@@ -27,8 +27,9 @@ TARGET = $(OUTDIR)/reaninjam.vst$(DLL_EXT)
 $(TARGET): $(OBJS)
 	$(CXX) -o $@ $(CXXFLAGS) $(LFLAGS) $^
 
+vstframe.o: res.rc
 
 .PHONY: clean
 
 clean:
-	-rm $(OBJS) $(TARGET)
+	-rm -f -- $(OBJS) $(TARGET)
